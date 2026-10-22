@@ -1,7 +1,8 @@
 import "server-only";
 import { env } from "../env";
 
-export type SankhyaErrorCode = "INVALID_CREDENTIALS" | "SESSION_EXPIRED" | "SERVICE" | "NETWORK";
+/** REJECTED = o Sankhya respondeu e recusou a operação (status "0") */
+export type SankhyaErrorCode = "INVALID_CREDENTIALS" | "SESSION_EXPIRED" | "REJECTED" | "SERVICE" | "NETWORK";
 
 export class SankhyaError extends Error {
   constructor(
@@ -14,12 +15,36 @@ export class SankhyaError extends Error {
 
 type Row = Record<string, unknown>;
 
+type ServiceResponse = {
+  status?: string;
+  statusMessage?: string;
+  tsError?: { tsErrorCode?: string };
+  responseBody?: any;
+};
+
+// Nunca loga o corpo da requisição (contém senha) — só serviço, status e mensagem do Sankhya
+function logFailure(serviceName: string, started: number, detail: string) {
+  console.error(`[sankhya] ${serviceName} falhou em ${Date.now() - started}ms: ${detail}`);
+}
+
+/** O Sankhya responde em ISO-8859-1; respeita o charset do cabeçalho. */
+async function decodeBody(res: Response) {
+  const charset = /charset=([^;]+)/i.exec(res.headers.get("content-type") ?? "")?.[1]?.trim() || "utf-8";
+  const buf = await res.arrayBuffer();
+  try {
+    return new TextDecoder(charset).decode(buf);
+  } catch {
+    return new TextDecoder("latin1").decode(buf);
+  }
+}
+
 async function callService(serviceName: string, requestBody: unknown, jsessionid?: string) {
   const url = new URL("/mge/service.sbr", env().SANKHYA_URL);
   url.searchParams.set("serviceName", serviceName);
   url.searchParams.set("outputType", "json");
   if (jsessionid) url.searchParams.set("mgeSession", jsessionid);
 
+  const started = Date.now();
   let res: Response;
   try {
     res = await fetch(url, {
@@ -30,28 +55,48 @@ async function callService(serviceName: string, requestBody: unknown, jsessionid
       },
       body: JSON.stringify({ serviceName, requestBody }),
       cache: "no-store",
+      // Um redirect transformaria o POST em GET; melhor falhar com uma mensagem clara
+      redirect: "manual",
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err) {
-    console.error(`[sankhya] falha de rede em ${serviceName}`, err);
+    const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
+    logFailure(
+      serviceName,
+      started,
+      `sem conexão com ${url.origin} — ${cause?.code ?? ""} ${cause?.message ?? String(err)}`.trim() +
+        " (verifique SANKHYA_URL e se o firewall do servidor Sankhya libera os IPs de saída do Render)",
+    );
     throw new SankhyaError("Não foi possível conectar ao Sankhya.", "NETWORK");
   }
 
+  if (res.status >= 300 && res.status < 400) {
+    logFailure(serviceName, started, `HTTP ${res.status} redirecionando para ${res.headers.get("location")} — ajuste SANKHYA_URL para esse endereço`);
+    throw new SankhyaError("Endereço do Sankhya mal configurado.", "SERVICE");
+  }
   if (res.status === 401 || res.status === 403) {
+    logFailure(serviceName, started, `HTTP ${res.status}`);
     throw new SankhyaError("Sessão do Sankhya expirada.", "SESSION_EXPIRED");
   }
   if (!res.ok) {
+    logFailure(serviceName, started, `HTTP ${res.status} ${res.statusText}`);
     throw new SankhyaError(`Sankhya respondeu HTTP ${res.status}.`, "SERVICE");
   }
 
-  const data = (await res.json().catch(() => null)) as
-    | { status?: string; statusMessage?: string; responseBody?: any }
-    | null;
-  if (!data) throw new SankhyaError("Resposta inválida do Sankhya.", "SERVICE");
+  const text = await decodeBody(res);
+  let data: ServiceResponse;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    logFailure(serviceName, started, `resposta não é JSON: ${text.slice(0, 200)}`);
+    throw new SankhyaError("Resposta inválida do Sankhya.", "SERVICE");
+  }
 
   if (data.status === "1") return data.responseBody;
+  const detail = `status ${data.status} ${data.tsError?.tsErrorCode ?? ""} "${data.statusMessage ?? ""}"`;
+  logFailure(serviceName, started, detail);
   if (data.status === "3") throw new SankhyaError("Sessão do Sankhya expirada.", "SESSION_EXPIRED");
-  throw new SankhyaError(data.statusMessage || "Erro no serviço do Sankhya.", "SERVICE");
+  throw new SankhyaError(data.statusMessage || "Erro no serviço do Sankhya.", "REJECTED");
 }
 
 /** Autentica no Sankhya e devolve o JSESSIONID. */
@@ -66,8 +111,8 @@ export async function sankhyaLogin(username: string, password: string): Promise<
     if (!jsessionid) throw new SankhyaError("Login sem sessão retornada.", "SERVICE");
     return jsessionid;
   } catch (err) {
-    // status "0" no login = usuário/senha inválidos (ou usuário bloqueado)
-    if (err instanceof SankhyaError && err.code === "SERVICE") {
+    // status "0" no login = usuário/senha inválidos (ou usuário bloqueado); o motivo exato já foi logado
+    if (err instanceof SankhyaError && err.code === "REJECTED") {
       throw new SankhyaError("Usuário ou senha inválidos.", "INVALID_CREDENTIALS");
     }
     throw err;

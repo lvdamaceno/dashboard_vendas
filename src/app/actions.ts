@@ -30,6 +30,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   const ip = h.get("true-client-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const keys = [`ip:${ip}`, `user:${parsed.data.username.toUpperCase()}`];
   if (keys.some(isBlocked)) {
+    console.warn(`[login] bloqueado por excesso de tentativas: ${parsed.data.username} (ip ${ip})`);
     return { error: "Muitas tentativas. Aguarde 15 minutos e tente novamente.", username };
   }
 
@@ -38,10 +39,11 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     jsessionid = await sankhyaLogin(parsed.data.username, parsed.data.password);
   } catch (err) {
     if (err instanceof SankhyaError && err.code === "INVALID_CREDENTIALS") {
+      console.warn(`[login] senha recusada pelo Sankhya para ${parsed.data.username} (ip ${ip})`);
       keys.forEach(registerFailure);
       return { error: "Usuário ou senha inválidos.", username };
     }
-    console.error("[login]", err);
+    console.error(`[login] erro ao validar ${parsed.data.username}:`, err instanceof Error ? err.message : err);
     return { error: "Não foi possível conectar ao Sankhya. Tente novamente.", username };
   }
 
@@ -49,10 +51,15 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   await sankhyaLogout(jsessionid);
 
   try {
-    await createSession(await fetchProfile(parsed.data.username));
+    const profile = await fetchProfile(parsed.data.username);
+    await createSession(profile);
+    console.info(`[login] ok ${profile.nome} — ${profile.role}, vendedor ${profile.codvend}, empresa ${profile.codemp ?? "-"}`);
   } catch (err) {
-    if (err instanceof ProfileError) return { error: err.message, username };
-    console.error("[login]", err);
+    if (err instanceof ProfileError) {
+      console.warn(`[login] ${parsed.data.username} autenticado mas sem acesso: ${err.message}`);
+      return { error: err.message, username };
+    }
+    console.error(`[login] erro ao carregar perfil de ${parsed.data.username} (conta de integração):`, err instanceof Error ? err.message : err);
     return { error: "Não foi possível carregar seu perfil no Sankhya.", username };
   }
 
