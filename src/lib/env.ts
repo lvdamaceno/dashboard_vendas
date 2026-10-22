@@ -14,9 +14,10 @@ const list = (re: RegExp) =>
     .refine((items) => items.every((i) => re.test(i)), "valor inválido na lista");
 
 const schema = z.object({
-  SANKHYA_URL: z.string().url(),
-  SANKHYA_SERVICE_USER: z.string().min(1, "obrigatório (usuário de integração com acesso ao DbExplorer)"),
-  SANKHYA_SERVICE_PASSWORD: z.string().min(1, "obrigatório"),
+  SANKHYA_API_URL: z.string().url().default("https://api.sankhya.com.br"),
+  SANKHYA_CLIENT_ID: z.string().min(1, "obrigatório (Área do Desenvolvedor Sankhya)"),
+  SANKHYA_CLIENT_SECRET: z.string().min(1, "obrigatório (Área do Desenvolvedor Sankhya)"),
+  SANKHYA_X_TOKEN: z.string().min(1, "obrigatório (tela Configurações Gateway no Sankhya)"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET precisa ter ao menos 32 caracteres"),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
   SALES_TIPMOV_VENDA: list(/^[A-Z]$/).transform((v) => (v.length ? v : ["V"])),

@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </svg>
           </div>
           <h1 className="text-xl font-semibold tracking-tight">Painel de Vendas</h1>
-          <p className="mt-1 text-sm text-ink-2">Entre com seu usuário e senha do Sankhya</p>
+          <p className="mt-1 text-sm text-ink-2">Entre com seu CPF</p>
         </div>
         {expirada && (
           <p className="mb-4 rounded-lg border border-line bg-surface px-3 py-2 text-center text-sm text-ink-2">

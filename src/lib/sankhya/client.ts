@@ -2,7 +2,7 @@ import "server-only";
 import { env } from "../env";
 
 /** REJECTED = o Sankhya respondeu e recusou a operação (status "0") */
-export type SankhyaErrorCode = "INVALID_CREDENTIALS" | "SESSION_EXPIRED" | "REJECTED" | "SERVICE" | "NETWORK";
+export type SankhyaErrorCode = "SESSION_EXPIRED" | "REJECTED" | "SERVICE" | "NETWORK";
 
 export class SankhyaError extends Error {
   constructor(
@@ -22,7 +22,7 @@ type ServiceResponse = {
   responseBody?: any;
 };
 
-// Nunca loga o corpo da requisição (contém senha) — só serviço, status e mensagem do Sankhya
+// Só loga serviço, status e mensagem do Sankhya — nunca credenciais
 function logFailure(serviceName: string, started: number, detail: string) {
   console.error(`[sankhya] ${serviceName} falhou em ${Date.now() - started}ms: ${detail}`);
 }
@@ -38,21 +38,66 @@ async function decodeBody(res: Response) {
   }
 }
 
-async function callService(serviceName: string, requestBody: unknown, jsessionid?: string) {
-  const url = new URL("/mge/service.sbr", env().SANKHYA_URL);
+// --- token OAuth da API oficial (gateway), reaproveitado entre requisições ---
+// O token pertence ao usuário de integração configurado no Sankhya (Configurações Gateway);
+// todas as consultas rodam com ele.
+let token: Promise<{ value: string; expiresAt: number }> | undefined;
+
+async function authenticate() {
+  const { SANKHYA_API_URL, SANKHYA_CLIENT_ID, SANKHYA_CLIENT_SECRET, SANKHYA_X_TOKEN } = env();
+  const url = new URL("/authenticate", SANKHYA_API_URL);
+  const started = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Token": SANKHYA_X_TOKEN },
+      body: new URLSearchParams({
+        client_id: SANKHYA_CLIENT_ID,
+        client_secret: SANKHYA_CLIENT_SECRET,
+        grant_type: "client_credentials",
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    logFailure("authenticate", started, `sem conexão com ${url.origin} — ${String(err)}`);
+    throw new SankhyaError("Não foi possível conectar ao Sankhya.", "NETWORK");
+  }
+  if (!res.ok) {
+    // Nunca loga o corpo da requisição (contém o client_secret)
+    logFailure("authenticate", started, `HTTP ${res.status} ${(await decodeBody(res)).slice(0, 200)} (verifique SANKHYA_CLIENT_ID/SECRET e SANKHYA_X_TOKEN)`);
+    throw new SankhyaError("Falha na autenticação com a API do Sankhya.", "SERVICE");
+  }
+  const data = (await res.json()) as { access_token?: string; expires_in?: number };
+  if (!data.access_token) {
+    logFailure("authenticate", started, "resposta sem access_token");
+    throw new SankhyaError("Falha na autenticação com a API do Sankhya.", "SERVICE");
+  }
+  // Renova 30s antes de expirar
+  return { value: data.access_token, expiresAt: Date.now() + Math.max((data.expires_in ?? 300) - 30, 10) * 1000 };
+}
+
+async function getToken(forceNew = false) {
+  const current = token && (await token.catch(() => undefined));
+  if (forceNew || !current || Date.now() >= current.expiresAt) {
+    token = authenticate();
+    token.catch(() => (token = undefined));
+  }
+  return (await token!).value;
+}
+
+async function callService(serviceName: string, requestBody: unknown, accessToken: string) {
+  const url = new URL("/gateway/v1/mge/service.sbr", env().SANKHYA_API_URL);
   url.searchParams.set("serviceName", serviceName);
   url.searchParams.set("outputType", "json");
-  if (jsessionid) url.searchParams.set("mgeSession", jsessionid);
 
   const started = Date.now();
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(jsessionid ? { Cookie: `JSESSIONID=${jsessionid}` } : {}),
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ serviceName, requestBody }),
       cache: "no-store",
       // Um redirect transformaria o POST em GET; melhor falhar com uma mensagem clara
@@ -64,14 +109,13 @@ async function callService(serviceName: string, requestBody: unknown, jsessionid
     logFailure(
       serviceName,
       started,
-      `sem conexão com ${url.origin} — ${cause?.code ?? ""} ${cause?.message ?? String(err)}`.trim() +
-        " (verifique SANKHYA_URL e se o firewall do servidor Sankhya libera os IPs de saída do Render)",
+      `sem conexão com ${url.origin} — ${cause?.code ?? ""} ${cause?.message ?? String(err)}`.trim(),
     );
     throw new SankhyaError("Não foi possível conectar ao Sankhya.", "NETWORK");
   }
 
   if (res.status >= 300 && res.status < 400) {
-    logFailure(serviceName, started, `HTTP ${res.status} redirecionando para ${res.headers.get("location")} — ajuste SANKHYA_URL para esse endereço`);
+    logFailure(serviceName, started, `HTTP ${res.status} redirecionando para ${res.headers.get("location")} — ajuste SANKHYA_API_URL`);
     throw new SankhyaError("Endereço do Sankhya mal configurado.", "SERVICE");
   }
   if (res.status === 401 || res.status === 403) {
@@ -99,60 +143,24 @@ async function callService(serviceName: string, requestBody: unknown, jsessionid
   throw new SankhyaError(data.statusMessage || "Erro no serviço do Sankhya.", "REJECTED");
 }
 
-/** Autentica no Sankhya e devolve o JSESSIONID. */
-export async function sankhyaLogin(username: string, password: string): Promise<string> {
-  try {
-    const body = await callService("MobileLoginSP.login", {
-      NOMUSU: { $: username },
-      INTERNO: { $: password },
-      KEEPCONNECTED: { $: "S" },
-    });
-    const jsessionid = body?.jsessionid?.$;
-    if (!jsessionid) throw new SankhyaError("Login sem sessão retornada.", "SERVICE");
-    return jsessionid;
-  } catch (err) {
-    // status "0" no login = usuário/senha inválidos (ou usuário bloqueado); o motivo exato já foi logado
-    if (err instanceof SankhyaError && err.code === "REJECTED") {
-      throw new SankhyaError("Usuário ou senha inválidos.", "INVALID_CREDENTIALS");
-    }
-    throw err;
-  }
-}
-
-export async function sankhyaLogout(jsessionid: string) {
-  await callService("MobileLoginSP.logout", {}, jsessionid).catch(() => undefined);
-}
-
-async function executeQuery(sql: string, jsessionid: string): Promise<Row[]> {
-  const body = await callService("DbExplorerSP.executeQuery", { sql }, jsessionid);
+async function executeQuery(sql: string, accessToken: string): Promise<Row[]> {
+  const body = await callService("DbExplorerSP.executeQuery", { sql }, accessToken);
   const fields: { name: string }[] = body?.fieldsMetadata ?? [];
   const rows: unknown[][] = body?.rows ?? [];
   return rows.map((row) => Object.fromEntries(fields.map((f, i) => [f.name.toUpperCase(), row[i]])));
 }
 
-// --- sessão da conta de integração (reaproveitada entre requisições) ---
-let serviceSession: Promise<string> | undefined;
-
-function getServiceSession(forceNew = false) {
-  if (forceNew || !serviceSession) {
-    const { SANKHYA_SERVICE_USER, SANKHYA_SERVICE_PASSWORD } = env();
-    serviceSession = sankhyaLogin(SANKHYA_SERVICE_USER!, SANKHYA_SERVICE_PASSWORD!);
-    serviceSession.catch(() => (serviceSession = undefined));
-  }
-  return serviceSession;
-}
-
 /**
- * Executa uma consulta com a conta de integração (a única com acesso ao
- * DbExplorer). O SQL é sempre montado no servidor — o navegador nunca envia SQL —
+ * Executa uma consulta pela API oficial com o usuário de integração (o único com
+ * acesso ao DbExplorer). O SQL é sempre montado no servidor — o navegador nunca envia SQL —
  * e quem chama é responsável por aplicar o escopo do usuário (ver sales.ts).
  */
 export async function query(sql: string): Promise<Row[]> {
   try {
-    return await executeQuery(sql, await getServiceSession());
+    return await executeQuery(sql, await getToken());
   } catch (err) {
     if (err instanceof SankhyaError && err.code === "SESSION_EXPIRED") {
-      return executeQuery(sql, await getServiceSession(true));
+      return executeQuery(sql, await getToken(true));
     }
     throw err;
   }

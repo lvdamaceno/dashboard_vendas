@@ -12,31 +12,19 @@ export function LoginForm() {
   return (
     <form action={action} className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div className="space-y-1.5">
-        <label htmlFor="username" className="text-sm font-medium">
-          Usuário
+        <label htmlFor="cpf" className="text-sm font-medium">
+          CPF
         </label>
         <input
-          id="username"
-          name="username"
-          autoComplete="username"
-          autoCapitalize="characters"
+          id="cpf"
+          name="cpf"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="000.000.000-00"
           required
-          maxLength={60}
-          defaultValue={state.username}
-          className={input}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium">
-          Senha
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          maxLength={128}
+          maxLength={14}
+          pattern="[0-9.\-\s]{11,14}"
+          defaultValue={state.cpf}
           className={input}
         />
       </div>
