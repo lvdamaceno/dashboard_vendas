@@ -25,7 +25,9 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   const username = typeof form.get("username") === "string" ? String(form.get("username")).slice(0, 60) : "";
   if (!parsed.success) return { error: "Informe usuário e senha válidos.", username };
 
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  // No Render (Cloudflare na frente) o IP real vem em True-Client-IP
+  const h = await headers();
+  const ip = h.get("true-client-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const keys = [`ip:${ip}`, `user:${parsed.data.username.toUpperCase()}`];
   if (keys.some(isBlocked)) {
     return { error: "Muitas tentativas. Aguarde 15 minutos e tente novamente.", username };
