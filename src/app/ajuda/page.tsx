@@ -430,9 +430,12 @@ export default function HelpPage() {
             <li>
               Toque no botão do cartão, ao lado dos períodos (o desenho de um cartãozinho; no computador aparece escrito <strong>Cartão</strong>).
             </li>
-            <li>Aparece a frente do cartão, amarela, com o seu nome e telefone.</li>
             <li>
-              <strong>Toque no cartão</strong> para ele virar e mostrar o <strong>QR code</strong> (o quadrado de pontinhos).
+              Aparece o cartão vermelho com o <strong>QR code</strong> (o quadrado de pontinhos).
+            </li>
+            <li>
+              Se quiser mostrar o seu nome e telefone escritos, <strong>toque no cartão</strong>: ele vira para o lado amarelo. Tocando de
+              novo, volta para o QR code.
             </li>
             <li>
               Mostre a tela para o cliente. Ele abre a câmera do celular dele, aponta para o QR code e toca no aviso que aparece: o
@@ -443,8 +446,8 @@ export default function HelpPage() {
             </li>
           </Steps>
           <div className="grid grid-cols-2 gap-3">
-            <Shot name="cartao-frente" alt="Frente do cartão, amarela, com logotipo, nome, cargo e telefone" caption="Frente" />
-            <Shot name="cartao-verso" alt="Verso do cartão, vermelho, com QR code do WhatsApp" caption="Verso" />
+            <Shot name="cartao-verso" alt="Lado vermelho do cartão, com o QR code do WhatsApp" caption="Primeiro aparece o QR code" />
+            <Shot name="cartao-frente" alt="Lado amarelo do cartão, com logotipo, nome, cargo e telefone" caption="Tocando, aparece nome e telefone" />
           </div>
           <Tip>Aumente o brilho da tela antes de mostrar o QR code: a câmera do cliente lê mais rápido.</Tip>
           <Tip kind="atencao">

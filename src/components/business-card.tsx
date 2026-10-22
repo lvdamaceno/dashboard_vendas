@@ -52,14 +52,14 @@ export function BusinessCard() {
           <button
             type="button"
             onClick={() => setFlipped((f) => !f)}
-            aria-label={flipped ? "Mostrar a frente do cartão" : "Mostrar o QR code do WhatsApp"}
+            aria-label={flipped ? "Mostrar o QR code do WhatsApp" : "Mostrar nome e telefone"}
             className="block aspect-[55/90] w-full perspective-[1200px]"
           >
             <div
               className={`relative size-full transition-transform duration-500 transform-3d motion-reduce:transition-none ${flipped ? "rotate-y-180" : ""}`}
             >
-              {/* Frente: cores fixas da marca (não mudam com o tema escuro) */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 rounded-3xl bg-[#fdb917] px-6 text-center text-[#b0141b] shadow-2xl backface-hidden">
+              {/* Verso, com nome e telefone. Cores fixas da marca (não mudam com o tema escuro) */}
+              <div className="absolute inset-0 flex rotate-y-180 flex-col items-center justify-center gap-6 rounded-3xl bg-[#fdb917] px-6 text-center text-[#b0141b] shadow-2xl backface-hidden">
                 <Logo variant="seal" className="w-44 rounded-xl" title="Casa Contente" />
                 <div>
                   <p className="font-title text-3xl leading-tight font-semibold text-[#d71921] uppercase">{card.nome}</p>
@@ -76,8 +76,8 @@ export function BusinessCard() {
                 <p className="absolute bottom-5 text-xs">Toque para virar</p>
               </div>
 
-              {/* Verso */}
-              <div className="absolute inset-0 flex rotate-y-180 flex-col items-center justify-center gap-5 rounded-3xl bg-[#d71921] px-6 text-center text-white shadow-2xl backface-hidden">
+              {/* Frente, a primeira que aparece: QR code do WhatsApp */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 rounded-3xl bg-[#d71921] px-6 text-center text-white shadow-2xl backface-hidden">
                 {card.qrSvg ? (
                   <>
                     <div
