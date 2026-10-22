@@ -20,10 +20,9 @@ const schema = z.object({
   SANKHYA_X_TOKEN: z.string().min(1, "obrigatório (tela Configurações Gateway no Sankhya)"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET precisa ter ao menos 32 caracteres"),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
-  SALES_TIPMOV_VENDA: list(/^[A-Z]$/).transform((v) => (v.length ? v : ["V"])),
-  SALES_TIPMOV_DEVOLUCAO: list(/^[A-Z]$/).transform((v) => (v.length ? v : ["D"])),
-  SALES_STATUSNOTA: list(/^[A-Z]$/).transform((v) => (v.length ? v : ["L"])),
-  SALES_TOPS: list(/^\d{1,9}$/).transform((v) => v.map(Number)),
+  // TOPs (TGFCAB.CODTIPOPER) que contam como venda e como devolução
+  SALES_TOPS_VENDA: list(/^\d{1,9}$/).transform((v) => (v.length ? v : ["1110", "1101", "1105", "1112", "1181"]).map(Number)),
+  SALES_TOPS_DEVOLUCAO: list(/^\d{1,9}$/).transform((v) => (v.length ? v : ["1201"]).map(Number)),
   MANAGER_TIPVEND: z.string().regex(/^[A-Z]$/).default("G"),
   MANAGER_SCOPE: z.enum(["empresa", "equipe"]).default("empresa"),
 });

@@ -7,7 +7,7 @@ import { str } from "./sql";
 export class ProfileError extends Error {}
 
 /**
- * Busca o vendedor pelo CPF: funcionário (TFPFUN, por CPF) → usuário (TSIUSU, pelo
+ * Busca o vendedor pelo CPF: funcionário ativo e não demitido (TFPFUN, por CPF) → usuário (TSIUSU, pelo
  * par CODEMP + CODFUNC, já que o mesmo CODFUNC pode existir em empresas diferentes)
  * → vendedor vinculado (TSIUSU.CODVEND) e perfil.
  */
@@ -19,7 +19,9 @@ export async function fetchProfile(cpf: string): Promise<Session> {
        FROM TFPFUN FUN
        JOIN TSIUSU USU ON USU.CODEMP = FUN.CODEMP AND USU.CODFUNC = FUN.CODFUNC
        LEFT JOIN TGFVEN VEN ON VEN.CODVEND = USU.CODVEND
-      WHERE REPLACE(REPLACE(REPLACE(FUN.CPF, '.', ''), '-', ''), ' ', '') = ${str(cpf)}`,
+      WHERE FUN.CPF = ${str(cpf)}
+        AND FUN.SITUACAO <> 0
+        AND FUN.DTDEM IS NULL`,
   );
 
   if (!rows.length) throw new ProfileError("CPF não encontrado como usuário no Sankhya.");

@@ -27,21 +27,22 @@ function scopeWhere(session: Session, vendedor?: number) {
 }
 
 // Vendas somam, devoluções (na data em que ocorreram) subtraem
-const isVenda = () => `CAB.TIPMOV IN (${inList(env().SALES_TIPMOV_VENDA)})`;
-const isDevolucao = () => `CAB.TIPMOV IN (${inList(env().SALES_TIPMOV_DEVOLUCAO)})`;
+const isVenda = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_VENDA)})`;
+const isDevolucao = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_DEVOLUCAO)})`;
 const sign = () => `(CASE WHEN ${isDevolucao()} THEN -1 ELSE 1 END)`;
 const countVendas = () => `SUM(CASE WHEN ${isVenda()} THEN 1 ELSE 0 END)`;
 
 function salesWhere(session: Session, from: string, to: string, vendedor?: number) {
-  const { SALES_TIPMOV_VENDA, SALES_TIPMOV_DEVOLUCAO, SALES_STATUSNOTA, SALES_TOPS } = env();
+  const { SALES_TOPS_VENDA, SALES_TOPS_DEVOLUCAO } = env();
   const clauses = [
-    `CAB.TIPMOV IN (${inList([...SALES_TIPMOV_VENDA, ...SALES_TIPMOV_DEVOLUCAO])})`,
-    `CAB.STATUSNOTA IN (${inList(SALES_STATUSNOTA)})`,
+    `CAB.CODTIPOPER IN (${inList([...SALES_TOPS_VENDA, ...SALES_TOPS_DEVOLUCAO])})`,
+    // Só notas com série (as notas fiscais emitidas)
+    `CAB.SERIENOTA IS NOT NULL`,
+    `CAB.SERIENOTA > 0`,
     `CAB.DTNEG >= ${date(from)}`,
     `CAB.DTNEG < ${date(addOneDay(to))}`,
     ...scopeWhere(session, vendedor),
   ];
-  if (SALES_TOPS.length) clauses.push(`CAB.CODTIPOPER IN (${inList(SALES_TOPS)})`);
   return `WHERE ${clauses.join("\n AND ")}`;
 }
 

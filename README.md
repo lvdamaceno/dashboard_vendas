@@ -23,7 +23,7 @@ Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAu
 
 1. O usuário entra **apenas com o CPF**.
 2. O sistema busca, com o usuário de integração:
-   - `TFPFUN` pelo CPF → `CODEMP` + `CODFUNC` (a empresa entra no filtro porque o mesmo
+   - `TFPFUN` pelo CPF, só funcionário ativo (`SITUACAO <> 0`) e não demitido (`DTDEM IS NULL`) → `CODEMP` + `CODFUNC` (a empresa entra no filtro porque o mesmo
      `CODFUNC` pode existir em empresas diferentes);
    - `TSIUSU` pelo par `CODEMP` + `CODFUNC` → vendedor vinculado (`TSIUSU.CODVEND`);
    - `TGFVEN`: sem vendedor ou vendedor inativo → acesso negado; CPF ligado a mais de um
@@ -83,17 +83,16 @@ precisa ter DDD. Sem telefone válido, o cartão avisa e o log registra o usuár
 
 ## Vendas e devoluções
 
-`TGFCAB` com `STATUSNOTA IN (SALES_STATUSNOTA)` (padrão `L`), pela data `DTNEG`:
+`TGFCAB` com `SERIENOTA IS NOT NULL AND SERIENOTA > 0`, pela data `DTNEG`:
 
-- `TIPMOV IN (SALES_TIPMOV_VENDA)` (padrão `V`) → soma `VLRNOTA`;
-- `TIPMOV IN (SALES_TIPMOV_DEVOLUCAO)` (padrão `D`) → **subtrai** `VLRNOTA`, na data da devolução
+- `CODTIPOPER IN (SALES_TOPS_VENDA)` (padrão `1110, 1101, 1105, 1112, 1181`) → soma `VLRNOTA`;
+- `CODTIPOPER IN (SALES_TOPS_DEVOLUCAO)` (padrão `1201`) → **subtrai** `VLRNOTA`, na data da devolução
   e para o vendedor da nota de devolução.
 
 Faturamento, gráfico diário e rankings são **líquidos** (vendas − devoluções); produtos usam
 `VLRTOT − VLRDESC` dos itens com o mesmo sinal. Devoluções aparecem em vermelho/negativo nas
 últimas movimentações e o card de faturamento mostra o total devolvido. "Pedidos", "Clientes"
 e o ticket médio (líquido ÷ pedidos) contam só as vendas.
-Para limitar a TOPs específicas use `SALES_TOPS` (inclua as de devolução).
 
 ## Segurança
 

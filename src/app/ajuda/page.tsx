@@ -549,7 +549,7 @@ export default function HelpPage() {
         <Section id="duvidas" n={12} title="Dúvidas frequentes">
           <div className="space-y-2">
             <Term name="Uma venda que fiz agora não apareceu.">
-              O painel mostra as notas já <strong>confirmadas</strong> no sistema. Assim que a nota for confirmada, a venda aparece.
+              O painel mostra as vendas que já têm <strong>nota fiscal emitida</strong>. Assim que a nota for emitida, a venda aparece.
               Para atualizar, feche o painel e abra de novo.
             </Term>
             <Term name="O valor está diferente do que eu esperava.">
