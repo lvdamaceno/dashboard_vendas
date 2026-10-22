@@ -57,6 +57,16 @@ Todas as consultas rodam com esse usuário; vendedores e gerentes não precisam 
 DbExplorer, e o filtro de escopo acima é aplicado em todas as consultas. O token OAuth é
 reaproveitado e renovado automaticamente antes de expirar.
 
+## Instalar no celular (PWA)
+
+O painel pode ser instalado como app (requer HTTPS):
+
+- **Android (Chrome):** menu ⋮ → **Instalar app** (ou o aviso que aparece na barra).
+- **iPhone (Safari):** Compartilhar → **Adicionar à Tela de Início**.
+
+O app abre direto no dashboard, em tela cheia. O service worker (`public/sw.js`) **não guarda
+dados de vendas em cache**: sem internet, mostra apenas a página `offline.html`.
+
 ## Vendas e devoluções
 
 `TGFCAB` com `STATUSNOTA IN (SALES_STATUSNOTA)` (padrão `L`), pela data `DTNEG`:
