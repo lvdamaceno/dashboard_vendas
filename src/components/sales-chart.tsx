@@ -16,7 +16,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-md">
+    <div className="rounded-2xl border border-line bg-surface px-3 py-2 text-xs shadow-md">
       <p className="text-ink-3">{formatDay(p.dia)}</p>
       <p className={`tabular mt-0.5 text-sm font-medium ${p.total < 0 ? "text-bad" : "text-ink"}`}>{money(p.total)}</p>
       <p className="tabular text-ink-2">

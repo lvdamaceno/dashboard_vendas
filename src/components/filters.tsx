@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Preset } from "@/lib/period";
+import { BusinessCard } from "./business-card";
 
 const PRESETS: { value: Preset; label: string }[] = [
   { value: "hoje", label: "Hoje" },
@@ -22,7 +23,7 @@ interface Props {
 
 // Alvos de toque de 44px no celular; um pouco mais compactos a partir do tablet
 const control =
-  "h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base outline-none focus:border-accent focus:ring-3 focus:ring-accent/15 md:h-10 md:text-sm";
+  "h-11 w-full min-w-0 rounded-full border border-line bg-surface px-4 text-base outline-none focus:border-accent focus:ring-3 focus:ring-accent/15 md:h-10 md:text-sm";
 
 export function Filters({ preset, from, to, today, vendedor, team }: Props) {
   const router = useRouter();
@@ -47,27 +48,33 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
 
   return (
     <div className="space-y-2 md:flex md:flex-wrap md:items-center md:gap-2 md:space-y-0" aria-busy={pending}>
-      <div className="grid grid-cols-4 rounded-xl border border-line bg-surface p-1 md:inline-grid md:w-auto" role="tablist" aria-label="Período">
-        {PRESETS.map((p) => {
-          const active = custom ? p.value === "periodo" : p.value === preset;
-          return (
-            <button
-              key={p.value}
-              role="tab"
-              aria-selected={active}
-              onClick={() => {
-                if (p.value === "periodo") return setCustom(true);
-                setCustom(false);
-                navigate({ ...current, periodo: p.value });
-              }}
-              className={`h-10 rounded-lg px-3 text-sm transition md:h-8 ${
-                active ? "bg-accent-soft font-medium text-accent" : "text-ink-2 active:bg-bg"
-              }`}
-            >
-              {p.label}
-            </button>
-          );
-        })}
+      {/* No celular, períodos e cartão dividem a primeira linha; no desktop o cartão vai para a direita */}
+      <div className="flex gap-2 md:contents">
+        <div className="grid flex-1 grid-cols-4 rounded-full border border-line bg-surface p-1 md:inline-grid md:w-auto md:flex-none" role="tablist" aria-label="Período">
+          {PRESETS.map((p) => {
+            const active = custom ? p.value === "periodo" : p.value === preset;
+            return (
+              <button
+                key={p.value}
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  if (p.value === "periodo") return setCustom(true);
+                  setCustom(false);
+                  navigate({ ...current, periodo: p.value });
+                }}
+                className={`h-10 rounded-full px-3 font-title text-sm font-medium transition md:h-8 ${
+                  active ? "bg-accent text-white" : "text-ink-2 hover:bg-bg-alt active:bg-bg-alt"
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex md:order-last md:ml-auto">
+          <BusinessCard />
+        </div>
       </div>
 
       {custom && (
@@ -82,7 +89,7 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
           <input type="date" aria-label="Data final" value={ate} min={de} max={today} onChange={(e) => setAte(e.target.value)} className={control} required />
           <button
             type="submit"
-            className="col-span-2 h-11 rounded-lg bg-accent px-4 text-sm font-medium text-white active:opacity-80 md:h-10"
+            className="col-span-2 h-11 rounded-full bg-accent px-5 font-title text-sm font-medium text-white hover:bg-accent-dark active:bg-accent-dark md:h-10"
           >
             Aplicar período
           </button>
@@ -94,7 +101,7 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
           aria-label="Vendedor"
           value={vendedor ?? ""}
           onChange={(e) => navigate({ ...current, vendedor: Number(e.target.value) || undefined })}
-          className={`${control} md:ml-auto md:w-56`}
+          className={`${control} md:w-56`}
         >
           <option value="">Todos os vendedores</option>
           {team.map((v) => (

@@ -13,9 +13,9 @@ export function KpiCard({ label, value, current, previous, prevLabel, note }: Pr
   const up = delta !== null && delta >= 0;
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-3.5 md:p-4">
+    <div className="rounded-3xl border border-line bg-surface p-4 md:p-5">
       <p className="text-xs text-ink-2 md:text-sm">{label}</p>
-      <p className="tabular mt-1 truncate text-lg font-semibold md:text-2xl tracking-tight">{value}</p>
+      <p className="tabular mt-1 truncate font-title text-xl font-semibold tracking-tight md:text-2xl">{value}</p>
       <p className="mt-1 text-xs text-ink-3" title={`Comparado a ${prevLabel}`}>
         {delta === null ? (
           "sem base de comparação"

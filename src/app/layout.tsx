@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import { Fredoka, Manrope } from "next/font/google";
 import { RegisterSW } from "@/components/register-sw";
 import "./globals.css";
+
+// Mesmas fontes da nova loja: Manrope no texto, Fredoka (próxima do logotipo) nos títulos
+const textFont = Manrope({ variable: "--font-text", subsets: ["latin"] });
+const headingFont = Fredoka({ variable: "--font-heading", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Painel de Vendas",
@@ -13,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={`${textFont.variable} ${headingFont.variable}`}>
       <body>
         {children}
         <RegisterSW />
@@ -26,8 +31,6 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#111110" },
-  ],
+  // Vermelho da marca, contínuo com o cabeçalho
+  themeColor: "#d71921",
 };

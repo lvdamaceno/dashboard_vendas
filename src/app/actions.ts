@@ -2,9 +2,11 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import QRCode from "qrcode";
 import { clearFailures, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
-import { createSession, destroySession } from "@/lib/session";
+import { fetchContact } from "@/lib/sankhya/contact";
+import { createSession, destroySession, getSession } from "@/lib/session";
 
 export type LoginState = { error?: string; cpf?: string };
 
@@ -57,4 +59,41 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
 export async function logout() {
   await destroySession();
   redirect("/login");
+}
+
+export type BusinessCard =
+  | { ok: true; nome: string; cargo: string; telefone: string | null; whatsapp: string | null; qrSvg: string | null }
+  | { ok: false; error: string };
+
+// Primeiro e último nome, para caber no cartão
+const shortName = (nome: string) => {
+  const parts = nome.trim().split(/\s+/);
+  return parts.length > 2 ? `${parts[0]} ${parts[parts.length - 1]}` : parts.join(" ");
+};
+
+const formatPhone = (tel: string) =>
+  tel.length === 11 ? `(${tel.slice(0, 2)}) ${tel.slice(2, 7)}-${tel.slice(7)}` : `(${tel.slice(0, 2)}) ${tel.slice(2, 6)}-${tel.slice(6)}`;
+
+/** Dados do cartão de visita do usuário logado; o QR code abre o WhatsApp dele. */
+export async function getBusinessCard(): Promise<BusinessCard> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Sessão expirada. Entre novamente." };
+
+  try {
+    const contact = await fetchContact(session.codusu);
+    const whatsapp = contact.telefone ? `https://wa.me/55${contact.telefone}` : null;
+    return {
+      ok: true,
+      nome: shortName(contact.nome ?? session.apelido),
+      cargo: session.role === "gerente" ? "Gerente" : "Vendedor",
+      telefone: contact.telefone ? formatPhone(contact.telefone) : null,
+      whatsapp,
+      qrSvg: whatsapp
+        ? await QRCode.toString(whatsapp, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#b0141b", light: "#ffffff" } })
+        : null,
+    };
+  } catch (err) {
+    console.error(`[cartao] erro ao carregar contato do usuário ${session.codusu}:`, err instanceof Error ? err.message : err);
+    return { ok: false, error: "Não foi possível carregar seu cartão. Tente novamente." };
+  }
 }

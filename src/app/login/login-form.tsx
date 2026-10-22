@@ -4,13 +4,13 @@ import { useActionState } from "react";
 import { login, type LoginState } from "../actions";
 
 const input =
-  "w-full rounded-lg border border-line bg-bg px-3 py-3 text-base outline-none transition focus:border-accent focus:ring-3 focus:ring-accent/15";
+  "w-full rounded-full border border-line bg-bg px-5 py-3 text-base outline-none transition focus:border-accent focus:ring-3 focus:ring-accent/15";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(login, {});
 
   return (
-    <form action={action} className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+    <form action={action} className="space-y-4 rounded-3xl border border-line bg-surface p-6">
       <div className="space-y-1.5">
         <label htmlFor="cpf" className="text-sm font-medium">
           CPF
@@ -36,7 +36,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="h-12 w-full rounded-lg bg-accent px-4 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+        className="h-12 w-full rounded-full bg-accent px-4 font-title text-base font-medium text-white transition hover:bg-accent-dark disabled:opacity-60"
       >
         {pending ? "Entrando…" : "Entrar"}
       </button>

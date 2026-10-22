@@ -10,6 +10,7 @@ import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/
 import { getDashboardData, getTeam, type DashboardData } from "@/lib/sales";
 import { SankhyaError } from "@/lib/sankhya/client";
 import { getSession } from "@/lib/session";
+import { Logo } from "@/components/logo";
 import { logout } from "../actions";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -36,7 +37,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     console.error("[dashboard]", err);
     return (
       <Shell session={session}>
-        <div className="rounded-xl border border-line bg-surface p-6 text-center">
+        <div className="rounded-3xl border border-line bg-surface p-6 text-center">
           <p className="font-medium">Não foi possível carregar as vendas</p>
           <p className="mt-1 text-sm text-ink-2">O Sankhya não respondeu como esperado. Tente novamente em instantes.</p>
         </div>
@@ -96,8 +97,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       </div>
 
       {series.length > 1 && (
-        <section className="rounded-xl border border-line bg-surface p-4">
-          <h2 className="mb-3 text-sm font-medium">Faturamento por dia</h2>
+        <section className="rounded-3xl border border-line bg-surface p-5">
+          <h2 className="mb-3 text-base">Faturamento por dia</h2>
           <SalesChart data={series} />
           <details className="mt-3 text-sm">
             <summary className="cursor-pointer py-1 text-xs text-ink-3">Ver em tabela</summary>
@@ -155,14 +156,15 @@ function Shell({ session, children }: { session: NonNullable<Awaited<ReturnType<
 
   return (
     <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
-      <header className="sticky top-0 z-10 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{session.apelido}</p>
-            <p className="truncate text-xs text-ink-3">{scope}</p>
+      <header className="sticky top-0 z-10 bg-[#d71921] pt-[env(safe-area-inset-top)] text-white">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+          <Logo variant="white" className="h-8 w-auto shrink-0 md:h-9" title="Casa Contente" />
+          <div className="ml-auto min-w-0 text-right">
+            <p className="truncate font-title text-sm font-medium">{session.apelido}</p>
+            <p className="truncate text-xs text-white/80">{scope}</p>
           </div>
           <form action={logout}>
-            <button type="submit" className="h-10 rounded-lg border border-line bg-surface px-4 text-sm text-ink-2 active:bg-bg">
+            <button type="submit" className="h-10 rounded-full bg-white/15 px-4 font-title text-sm font-medium text-white hover:bg-white/25 active:bg-white/25">
               Sair
             </button>
           </form>

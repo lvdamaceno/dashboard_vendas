@@ -1,7 +1,7 @@
 // Service worker mínimo para instalar o painel como app (PWA).
 // Dados de vendas nunca são guardados em cache: tudo vai para a rede e, sem
 // conexão, as navegações mostram a página offline.
-const CACHE = "dv-v1";
+const CACHE = "dv-v2";
 const OFFLINE = "/offline.html";
 
 self.addEventListener("install", (event) => {
