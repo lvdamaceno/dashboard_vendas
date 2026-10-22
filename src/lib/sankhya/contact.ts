@@ -8,19 +8,12 @@ export interface Contact {
   telefone: string | null;
 }
 
-// Colunas de telefone do cadastro de funcionário, em ordem de preferência
-// (celular primeiro, já que o atendimento é por WhatsApp)
-const PHONE_COLUMNS = ["CELULAR", "TELCELULAR", "FONECELULAR", "TELEFONE", "FONE", "TELRESIDENCIAL"];
-
 const digits = (v: unknown) => String(v ?? "").replace(/\D/g, "").replace(/^0+/, "");
 
-/**
- * Nome e telefone do funcionário (TFPFUN) vinculado ao usuário. Lê todas as colunas
- * para não depender do nome exato do campo de telefone na versão do Sankhya.
- */
+/** Nome e telefone (TFPFUN.TELEFONE) do funcionário vinculado ao usuário, por CODEMP + CODFUNC. */
 export async function fetchContact(codusu: number): Promise<Contact> {
   const rows = await query(
-    `SELECT FUN.*
+    `SELECT FUN.NOMEFUNC, FUN.TELEFONE
        FROM TSIUSU USU
        JOIN TFPFUN FUN ON FUN.CODEMP = USU.CODEMP AND FUN.CODFUNC = USU.CODFUNC
       WHERE USU.CODUSU = ${int(codusu)}`,
@@ -28,20 +21,10 @@ export async function fetchContact(codusu: number): Promise<Contact> {
   const row = rows[0];
   if (!row) return { nome: null, telefone: null };
 
-  const ddd = digits(row.DDD);
-  let telefone: string | null = null;
-  for (const col of PHONE_COLUMNS) {
-    let tel = digits(row[col]).replace(/^55(?=\d{10,11}$)/, "");
-    if (tel.length === 8 || tel.length === 9) tel = ddd.length === 2 ? ddd + tel : "";
-    if (tel.length === 10 || tel.length === 11) {
-      telefone = tel;
-      break;
-    }
-  }
-  if (!telefone) {
-    const available = Object.keys(row).filter((k) => /FONE|CEL|TEL/.test(k));
-    console.warn(`[cartao] usuário ${codusu} sem telefone válido em TFPFUN (colunas encontradas: ${available.join(", ") || "nenhuma"})`);
-  }
+  // Aceita com ou sem +55; precisa ter DDD (10 ou 11 dígitos)
+  const tel = digits(row.TELEFONE).replace(/^55(?=\d{10,11}$)/, "");
+  const telefone = tel.length === 10 || tel.length === 11 ? tel : null;
+  if (!telefone) console.warn(`[cartao] usuário ${codusu} sem telefone válido com DDD em TFPFUN.TELEFONE`);
 
   const nome = String(row.NOMEFUNC ?? "").trim() || null;
   return { nome, telefone };

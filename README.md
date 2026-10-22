@@ -78,10 +78,8 @@ O botão **Cartão**, ao lado dos filtros, abre o cartão de visita do usuário 
 nome (primeiro e último, de `TFPFUN.NOMEFUNC`), cargo e celular; tocando, ele vira e mostra um
 QR code que abre o WhatsApp do vendedor (`https://wa.me/55<DDD><número>`).
 
-O telefone vem do cadastro de funcionário (`TFPFUN`, ligado ao usuário por `CODEMP` + `CODFUNC`),
-na primeira coluna preenchida entre `CELULAR`, `TELCELULAR`, `FONECELULAR`, `TELEFONE`, `FONE`
-e `TELRESIDENCIAL` (com `DDD` separado, se houver). Sem telefone válido, o cartão avisa e o log
-lista as colunas de telefone encontradas.
+O telefone vem de `TFPFUN.TELEFONE` (funcionário ligado ao usuário por `CODEMP` + `CODFUNC`) e
+precisa ter DDD. Sem telefone válido, o cartão avisa e o log registra o usuário.
 
 ## Vendas e devoluções
 
