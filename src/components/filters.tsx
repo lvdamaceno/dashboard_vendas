@@ -30,7 +30,8 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
   const [pending, startTransition] = useTransition();
   const [custom, setCustom] = useState(preset === "periodo");
   const [de, setDe] = useState(from);
-  const [ate, setAte] = useState(to);
+  // Semana e mês vão até o fim do período; o período personalizado não passa de hoje
+  const [ate, setAte] = useState(to > today ? today : to);
 
   function navigate(next: { periodo: Preset; de?: string; ate?: string; vendedor?: number }) {
     const params = new URLSearchParams({ periodo: next.periodo });

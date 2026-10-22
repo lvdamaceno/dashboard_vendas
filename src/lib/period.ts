@@ -65,10 +65,13 @@ export function resolvePeriod(params: { periodo?: string; de?: string; ate?: str
       prevFrom = prevTo = addDays(today, -1);
       break;
     case "semana": {
+      // Semana atual completa, de segunda a sábado (no domingo, a semana que terminou ontem)
       const weekday = (toDate(today).getUTCDay() + 6) % 7; // segunda = 0
       from = addDays(today, -weekday);
+      to = addDays(from, 5);
+      // Comparação justa: semana anterior até o mesmo dia da semana de hoje
       prevFrom = addDays(from, -7);
-      prevTo = addDays(today, -7);
+      prevTo = addDays(today < to ? today : to, -7);
       break;
     }
     case "periodo": {
@@ -82,7 +85,10 @@ export function resolvePeriod(params: { periodo?: string; de?: string; ate?: str
       break;
     }
     default:
+      // Mês atual completo, do primeiro ao último dia
       from = `${today.slice(0, 8)}01`;
+      to = addDays(addMonths(from, 1), -1);
+      // Comparação justa: mês anterior até o mesmo dia de hoje
       prevFrom = addMonths(from, -1);
       prevTo = addMonths(today, -1);
   }
