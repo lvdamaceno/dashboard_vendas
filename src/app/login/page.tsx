@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 
@@ -17,6 +18,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </p>
         )}
         <LoginForm />
+        <p className="mt-6 text-center text-sm">
+          <Link href="/ajuda" className="font-medium text-accent underline-offset-4 hover:underline">
+            Primeira vez aqui? Veja como usar o painel
+          </Link>
+        </p>
       </div>
     </main>
   );

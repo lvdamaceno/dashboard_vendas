@@ -57,6 +57,11 @@ Todas as consultas rodam com esse usuário; vendedores e gerentes não precisam 
 DbExplorer, e o filtro de escopo acima é aplicado em todas as consultas. O token OAuth é
 reaproveitado e renovado automaticamente antes de expirar.
 
+## Guia de uso
+
+A página `/ajuda` (pública, com link na tela de login e no `?` do cabeçalho) explica o painel passo a passo
+para quem não é da área de tecnologia, com capturas de tela feitas com dados de exemplo (`public/ajuda/`).
+
 ## Instalar no celular (PWA)
 
 O painel pode ser instalado como app (requer HTTPS):

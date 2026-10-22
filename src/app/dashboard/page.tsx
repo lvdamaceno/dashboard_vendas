@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Filters } from "@/components/filters";
 import { KpiCard } from "@/components/kpi-card";
@@ -163,6 +164,13 @@ function Shell({ session, children }: { session: NonNullable<Awaited<ReturnType<
             <p className="truncate font-title text-sm font-medium">{session.apelido}</p>
             <p className="truncate text-xs text-white/80">{scope}</p>
           </div>
+          <Link
+            href="/ajuda"
+            aria-label="Como usar o painel"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15 font-title text-lg font-semibold hover:bg-white/25"
+          >
+            ?
+          </Link>
           <form action={logout}>
             <button type="submit" className="h-10 rounded-full bg-white/15 px-4 font-title text-sm font-medium text-white hover:bg-white/25 active:bg-white/25">
               Sair

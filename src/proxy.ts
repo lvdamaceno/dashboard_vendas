@@ -19,8 +19,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Arquivos públicos do PWA (manifest, service worker, ícones, página offline) ficam fora da barreira
+  // Arquivos públicos do PWA (manifest, service worker, ícones, página offline) e o guia de uso ficam fora da barreira
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|offline.html|icons/|sessao-expirada).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|offline.html|icons/|ajuda|sessao-expirada).*)",
   ],
 };
