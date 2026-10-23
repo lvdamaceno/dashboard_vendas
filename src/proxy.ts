@@ -10,11 +10,17 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/login") {
     return session ? NextResponse.redirect(new URL("/dashboard", request.url)) : NextResponse.next();
   }
+  // Login de admin fica aberto mesmo com sessão de vendedor (entrar como admin troca a sessão)
+  if (pathname === "/admin/login") {
+    return session?.role === "admin" ? NextResponse.redirect(new URL("/admin", request.url)) : NextResponse.next();
+  }
+  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   if (!session) {
-    const res = NextResponse.redirect(new URL("/login", request.url));
+    const res = NextResponse.redirect(new URL(isAdminArea ? "/admin/login" : "/login", request.url));
     res.cookies.delete(SESSION_COOKIE);
     return res;
   }
+  if (isAdminArea && session.role !== "admin") return NextResponse.redirect(new URL("/dashboard", request.url));
   return NextResponse.next();
 }
 

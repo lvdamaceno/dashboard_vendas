@@ -1,7 +1,8 @@
 # Painel de Vendas (Sankhya)
 
 Dashboard mobile-first para vendedores e gerentes acompanharem suas vendas.
-Os dados vêm direto do Sankhya via API; nada é armazenado.
+Os dados de vendas vêm direto do Sankhya via API e não são armazenados. O que o Sankhya não tem
+(usuários master, avisos e sugestões) fica num Postgres (schema `painel`, ver abaixo).
 
 **Stack:** Next.js 16 (App Router, Server Components/Actions) · TypeScript · Tailwind 4 · Recharts.
 
@@ -22,7 +23,8 @@ Capturas do sistema rodando com dados fictícios (nomes, valores e telefone inve
 ## Rodando
 
 ```bash
-cp .env.example .env      # preencha SANKHYA_CLIENT_ID/SECRET, SANKHYA_X_TOKEN e SESSION_SECRET (openssl rand -base64 48)
+cp .env.example .env      # preencha SANKHYA_CLIENT_ID/SECRET, SANKHYA_X_TOKEN, SESSION_SECRET (openssl rand -base64 48),
+                          # DATABASE_URL, ADMIN_USER e ADMIN_PASSWORD
 npm install
 npm run dev               # desenvolvimento
 npm run build && npm start   # produção (porta 3000)
@@ -35,8 +37,9 @@ Em produção, sirva **somente via HTTPS** (Nginx/Caddy/load balancer na frente)
 Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAuth 2.0
 `client_credentials`) — o app não acessa o servidor Sankhya diretamente.
 
-1. O usuário entra **apenas com o CPF**.
-2. O sistema busca, com o usuário de integração:
+1. O usuário entra **apenas com o CPF**. Se o CPF estiver em `painel.usuario_master`, entra como
+   **master** (diretoria) sem consultar o Sankhya.
+2. Senão, o sistema busca, com o usuário de integração:
    - `TFPFUN` pelo CPF, só funcionário ativo (`SITUACAO <> 0`) e não demitido (`DTDEM IS NULL`) → `CODEMP` + `CODFUNC` (a empresa entra no filtro porque o mesmo
      `CODFUNC` pode existir em empresas diferentes);
    - **gerente**: registro ativo em `TGFVEN` com esse `CODFUNC` + `CODEMP` e `TIPVEND` `S` ou `G`
@@ -57,6 +60,12 @@ Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAu
 |---|---|
 | Vendedor | apenas `TGFCAB.CODVEND = seu código`. Parâmetros na URL são ignorados. |
 | Gerente | as vendas da sua loja: `TGFCAB.CODEMP` = empresa do gerente em `TGFVEN`. O filtro lista os vendedores ativos da loja e da equipe (`CODGER`). |
+| Master (diretoria) | todas as lojas, com ranking de lojas; pode escolher uma loja (`?loja=`) e um vendedor dela. CPFs cadastrados pelo admin. |
+| Admin | tudo o que o master vê, a área `/admin` e o painel de qualquer vendedor ou gerente, escolhido pelo nome. |
+
+Os parâmetros `loja` e `vendedor` da URL só valem para quem tem esse acesso; o vendedor continua preso ao próprio `CODVEND`.
+Quando o admin escolhe uma pessoa, a sessão guarda essa pessoa (relida do `TGFVEN` pelo código) e o painel usa exatamente as
+regras dela; uma faixa amarela mostra de quem é o painel e o botão **Voltar ao admin**.
 
 O filtro de vendedor do gerente só **restringe** (é somado com `AND`), nunca amplia.
 
@@ -85,8 +94,11 @@ O painel pode ser instalado como app (requer HTTPS):
 - **Android (Chrome):** menu ⋮ → **Instalar app** (ou o aviso que aparece na barra).
 - **iPhone (Safari):** Compartilhar → **Adicionar à Tela de Início**.
 
-O app abre direto no dashboard, em tela cheia. O service worker (`public/sw.js`) **não guarda
-dados de vendas em cache**: sem internet, mostra apenas a página `offline.html`.
+O app abre direto no dashboard, em tela cheia. O service worker (`public/sw.js`) guarda **a última
+versão do painel que carregou com dados** (cache `dv-dados`) e os arquivos JS/CSS do Next. Sem internet, abre essa
+cópia com um aviso amarelo dizendo de quando são os dados; sem cópia, mostra `offline.html`. A cópia é apagada ao
+abrir a tela de login (sair, sessão expirada) e quando o servidor redireciona para o login. Telas de erro não
+substituem a última cópia boa (a página marca o painel carregado com `data-offline-ok`).
 
 ## Cartão de visita (WhatsApp)
 
@@ -129,10 +141,35 @@ log com o prefixo `[indicadores]`.
 | Indicadores por vendedor (gerente) | peças por atendimento, desconto e devolução (pelos itens) de cada vendedor |
 | Margem bruta (gerente) | (receita − custo) ÷ receita dos itens com custo; custo = registro mais recente de `TGFCUS` até a data da venda, na coluna `MARGEM_CUSTO` (padrão `CUSGER`). Avisa quando falta custo em mais de 5% da receita |
 
+## Avisos, sugestões e admin
+
+Ficam no Postgres `loja-casacontente-db` (o mesmo da nova loja, para não criar mais um banco), no schema
+**`painel`**, separado das tabelas da loja (`site`, `erp`). As tabelas estão em `db/schema.sql`
+(pode rodar de novo sem problema). No Render, `DATABASE_URL` usa a URL interna. Se o banco cair, o painel de vendas
+continua funcionando; só o sino some e o envio de sugestões avisa o erro.
+
+| Tabela | Para quê |
+|---|---|
+| `usuario_master` | CPFs da diretoria (veem todas as lojas). Removido aqui, perde o acesso no próximo carregamento. |
+| `aviso` | Avisos do sino; `codemp` nulo = todas as lojas |
+| `aviso_visto` | Última vez que cada usuário abriu o sino (marca os novos) |
+| `feedback` | Sugestões e erros, com status concluído |
+
+- **Sino** (canto superior esquerdo): bolinha amarela quando há aviso novo. Vendedor e gerente veem os avisos de todas as
+  lojas e os da sua loja; o **gerente** envia para a própria loja; **master** e **admin** veem todos e enviam para uma loja
+  ou para todas.
+- **Sugestões e erros**: botão no fim do painel. Guarda a página e o navegador para ajudar a reproduzir.
+- **Admin** (`/admin/login`, usuário e senha em `ADMIN_USER`/`ADMIN_PASSWORD`; sem os dois o acesso fica desligado):
+  sugestões e erros (concluir/reabrir e **Criar issue no GitHub**, que abre o formulário de issue já preenchido em
+  `GITHUB_REPO` — o repositório é público, então vai só a mensagem, sem o nome de quem enviou), avisos (enviar e apagar),
+  usuários master e **Ver painéis** (busca por nome).
+
 ## Segurança
 
 - Cookie de sessão criptografado; nada sensível exposto ao navegador.
 - Proxy (`src/proxy.ts`) bloqueia tudo sem sessão; as páginas revalidam a sessão.
+- Login de admin com usuário e senha comparados em tempo constante e o mesmo limite de tentativas por IP.
+- Server Actions de avisos, sugestões e admin conferem sessão e papel no servidor; o SQL do Postgres é sempre parametrizado.
 - Login com limite de 5 tentativas / 15 min por IP e por CPF; o CPF completo não vai para os logs (em memória — com várias
   instâncias, use limite no proxy reverso; o IP vem de `X-Forwarded-For`, então o proxy precisa sobrescrevê-lo).
 - Server Actions com verificação de origem (CSRF), CSP, `X-Frame-Options: DENY`, HSTS, `no-store`.
@@ -148,4 +185,9 @@ src/lib/sankhya/client.ts    API oficial Sankhya (OAuth + gateway)
 src/lib/sankhya/profile.ts   CPF → funcionário → usuário → vendedor/perfil
 src/lib/sales.ts             consultas + regras de escopo
 src/lib/period.ts            hoje / semana / mês / período (fuso America/Sao_Paulo)
+src/lib/db.ts                Postgres do painel (pool pequeno)
+src/lib/painel.ts            masters, avisos e sugestões
+src/app/painel-actions.ts    enviar aviso / sugestão (Server Actions)
+src/app/admin/               área de admin (login, abas, ações)
+db/schema.sql                tabelas do schema painel
 ```

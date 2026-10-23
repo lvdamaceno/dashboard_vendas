@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { FeedbackButton } from "@/components/feedback-button";
 import { Filters } from "@/components/filters";
 import { KpiCard } from "@/components/kpi-card";
 import { LostClients } from "@/components/lost-clients";
@@ -10,11 +10,13 @@ import { VendorTable } from "@/components/vendor-table";
 import { money, number, percent } from "@/lib/format";
 import { getInsights, type Insights, type VendorStats } from "@/lib/insights";
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
-import { getDashboardData, getTeam, type DashboardData } from "@/lib/sales";
+import { masterExists, listNotices, type Notice } from "@/lib/painel";
+import { getDashboardData, getPeople, getStores, getTeam, type DashboardData, type Person } from "@/lib/sales";
 import { SankhyaError } from "@/lib/sankhya/client";
-import { getSession } from "@/lib/session";
-import { Logo } from "@/components/logo";
-import { logout } from "../actions";
+import { getSession, isManagerial, seesAllStores, viewSession, type Session } from "@/lib/session";
+import { OfflineBanner } from "@/components/offline-banner";
+import { PersonPicker } from "@/components/person-picker";
+import { roleLabel, Shell } from "@/components/shell";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -24,23 +26,51 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const session = await getSession();
   if (!session) redirect("/login");
 
+  // Master removido pelo admin perde o acesso na hora (se o banco não responder, segue)
+  if (session.role === "master" && session.masterId) {
+    const exists = await masterExists(session.masterId).catch((err) => {
+      console.error("[dashboard] não foi possível conferir o master:", err instanceof Error ? err.message : err);
+      return true;
+    });
+    if (!exists) redirect("/sessao-expirada");
+  }
+
   const sp = await searchParams;
   const period = resolvePeriod({ periodo: one(sp.periodo), de: one(sp.de), ate: one(sp.ate) });
-  const isManager = session.role === "gerente";
-  const vendedorParam = Number(one(sp.vendedor));
-  // Só gerentes filtram por vendedor; a restrição de loja/equipe continua valendo no SQL
-  const vendedor = isManager && Number.isSafeInteger(vendedorParam) && vendedorParam > 0 ? vendedorParam : undefined;
+  const param = (k: string) => {
+    const v = Number(one(sp[k]));
+    return Number.isSafeInteger(v) && v > 0 ? v : undefined;
+  };
+
+  // Admin vendo o painel de alguém usa a sessão dessa pessoa; master e admin escolhem a loja na URL
+  const base = viewSession(session);
+  const allStores = seesAllStores(base);
+  const loja = allStores ? param("loja") : undefined;
+  const view: Session = allStores ? { ...base, codemp: loja ?? 0 } : base;
+  const isManager = isManagerial(view);
+  // Só quem vê a loja filtra por vendedor; a restrição de loja/equipe continua valendo no SQL
+  const vendedor = isManager ? param("vendedor") : undefined;
+
+  const [notices, stores, people] = await Promise.all([
+    listNotices(session).catch((err): Notice[] | null => {
+      console.error("[avisos] erro ao carregar:", err instanceof Error ? err.message : err);
+      return null;
+    }),
+    isManagerial(session) ? optional("lojas", getStores) : [],
+    session.role === "admin" && !session.como ? optional("pessoas", getPeople) : ([] as Person[]),
+  ]);
+  const shell = { session, notices, stores, scope: allStores ? roleLabel(view, stores.find((s) => s.codigo === loja)?.nome) : undefined };
 
   let data: DashboardData;
   let team: Awaited<ReturnType<typeof getTeam>>;
   let insights: Insights;
   try {
-    [data, team, insights] = await Promise.all([getDashboardData(session, period, vendedor), getTeam(session), getInsights(session, period, vendedor)]);
+    [data, team, insights] = await Promise.all([getDashboardData(view, period, vendedor), getTeam(view), getInsights(view, period, vendedor)]);
   } catch (err) {
     if (err instanceof SankhyaError && err.code === "SESSION_EXPIRED") redirect("/sessao-expirada");
     console.error("[dashboard]", err);
     return (
-      <Shell session={session}>
+      <Shell {...shell}>
         <div className="rounded-3xl border border-line bg-surface p-6 text-center">
           <p className="font-medium">Não foi possível carregar as vendas</p>
           <p className="mt-1 text-sm text-ink-2">O Sankhya não respondeu como esperado. Tente novamente em instantes.</p>
@@ -56,8 +86,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     return byDay.get(dia) ?? { dia, total: 0, pedidos: 0 };
   });
 
-  const linkFor = (codvend: number) => {
-    const params = new URLSearchParams({ periodo: period.preset, vendedor: String(codvend) });
+  const linkFor = (filter: { vendedor?: number; loja?: number }) => {
+    const params = new URLSearchParams({ periodo: period.preset });
+    const lojaLink = filter.loja ?? loja;
+    if (lojaLink) params.set("loja", String(lojaLink));
+    if (filter.vendedor) params.set("vendedor", String(filter.vendedor));
     if (period.preset === "periodo") {
       params.set("de", period.from);
       params.set("ate", period.to);
@@ -76,22 +109,38 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const showWeek = daysBetween(period.from, period.to) >= 7;
 
   return (
-    <Shell session={session}>
+    <Shell {...shell}>
+      {people.length > 0 && (
+        <details className="group rounded-3xl border border-line bg-surface p-5">
+          <summary className="cursor-pointer font-title font-medium">Ver o painel de um vendedor ou gerente</summary>
+          <div className="mt-3">
+            <PersonPicker people={people} stores={stores} />
+          </div>
+        </details>
+      )}
+
       <Filters
-        key={`${period.preset}-${period.from}-${period.to}-${vendedor ?? ""}`}
+        key={`${period.preset}-${period.from}-${period.to}-${loja ?? ""}-${vendedor ?? ""}`}
         preset={period.preset}
         from={period.from}
         to={period.to}
         today={todayIso()}
         vendedor={vendedor}
         team={team}
+        stores={allStores ? stores : []}
+        loja={loja}
+        showCard={session.role === "vendedor" || session.role === "gerente"}
       />
 
-      <p className="text-xs text-ink-3">
-        {period.label}
-        {vendedorNome && <> · {vendedorNome}</>}
-        <span className="hidden sm:inline"> · comparado a {period.prevLabel}</span>
-      </p>
+      {/* data-offline-ok: o service worker só guarda para uso offline o painel que carregou */}
+      <div className="space-y-1" data-offline-ok="">
+        <p className="text-xs text-ink-3">
+          {period.label}
+          {vendedorNome && <> · {vendedorNome}</>}
+          <span className="hidden sm:inline"> · comparado a {period.prevLabel}</span>
+        </p>
+        <OfflineBanner updatedAt={updatedAt.format(new Date())} />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
@@ -188,6 +237,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         </section>
       )}
 
+      {data.lojas.length > 0 && !vendedor && (
+        <RankList
+          title="Ranking de lojas"
+          items={data.lojas.map((l) => ({
+            key: l.codigo,
+            nome: stores.find((s) => s.codigo === l.codigo)?.nome ?? `Loja ${l.codigo}`,
+            total: l.total,
+            detalhe: pedidosLabel(l.pedidos),
+            href: linkFor({ loja: l.codigo }),
+          }))}
+        />
+      )}
+
       {isManager && !vendedor && (
         <RankList
           title="Ranking de vendedores"
@@ -196,7 +258,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             nome: v.nome,
             total: v.total,
             detalhe: pedidosLabel(v.pedidos),
-            href: linkFor(v.codigo),
+            href: linkFor({ vendedor: v.codigo }),
           }))}
         />
       )}
@@ -245,8 +307,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       {insights.sumidos && <LostClients clientes={insights.sumidos} />}
 
       <OrdersTable pedidos={data.pedidos} showVendedor={isManager} />
+
+      <FeedbackButton />
     </Shell>
   );
+}
+
+const updatedAt = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+
+/** Consulta complementar: se falhar, a tela segue sem ela. */
+async function optional<T>(name: string, fn: () => Promise<T[]>): Promise<T[]> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`[dashboard] ${name}:`, err instanceof Error ? err.message : err);
+    return [];
+  }
 }
 
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
@@ -258,35 +334,4 @@ function totals(rows: VendorStats[]) {
   const bruto = sum("bruto");
   const descontoValor = sum("desconto");
   return { pecasPorPedido: pedidos ? sum("pecas") / pedidos : 0, desconto: bruto ? descontoValor / bruto : 0, descontoValor };
-}
-
-function Shell({ session, children }: { session: NonNullable<Awaited<ReturnType<typeof getSession>>>; children: React.ReactNode }) {
-  const scope = session.role === "gerente" ? `Gerente · Loja ${session.codemp}` : `Vendedor · ${session.codvend}`;
-
-  return (
-    <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
-      <header className="sticky top-0 z-10 bg-[#d71921] pt-[env(safe-area-inset-top)] text-white">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
-          <Logo variant="white" className="h-8 w-auto shrink-0 md:h-9" title="Casa Contente" />
-          <div className="ml-auto min-w-0 text-right">
-            <p className="truncate font-title text-sm font-medium">{session.apelido}</p>
-            <p className="truncate text-xs text-white/80">{scope}</p>
-          </div>
-          <Link
-            href="/ajuda"
-            aria-label="Como usar o painel"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15 font-title text-lg font-semibold hover:bg-white/25"
-          >
-            ?
-          </Link>
-          <form action={logout}>
-            <button type="submit" className="h-10 rounded-full bg-white/15 px-4 font-title text-sm font-medium text-white hover:bg-white/25 active:bg-white/25">
-              Sair
-            </button>
-          </form>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl space-y-3 px-4 py-4 md:space-y-4 md:py-6">{children}</main>
-    </div>
-  );
 }

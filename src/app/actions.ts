@@ -1,11 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import QRCode from "qrcode";
-import { clearFailures, isBlocked, registerFailure } from "@/lib/rate-limit";
+import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
 import { fetchContact } from "@/lib/sankhya/contact";
+import { findMaster } from "@/lib/painel";
 import { createSession, destroySession, getSession } from "@/lib/session";
 
 export type LoginState = { error?: string; cpf?: string };
@@ -29,13 +29,26 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   const cpf = raw.replace(/\D/g, "");
   if (!validCpf(cpf)) return { error: "Informe um CPF válido.", cpf: raw };
 
-  // No Render (Cloudflare na frente) o IP real vem em True-Client-IP
-  const h = await headers();
-  const ip = h.get("true-client-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = await clientIp();
   const keys = [`ip:${ip}`, `cpf:${cpf}`];
   if (keys.some(isBlocked)) {
     console.warn(`[login] bloqueado por excesso de tentativas: ${masked(cpf)} (ip ${ip})`);
     return { error: "Muitas tentativas. Aguarde 15 minutos e tente novamente.", cpf: raw };
+  }
+
+  // Diretores (master) cadastrados pelo admin entram sem passar pelo Sankhya
+  let master: Awaited<ReturnType<typeof findMaster>> = null;
+  try {
+    master = await findMaster(cpf);
+  } catch (err) {
+    console.error("[login] não foi possível consultar os masters:", err instanceof Error ? err.message : err);
+  }
+  if (master) {
+    const apelido = master.nome.trim().split(/\s+/)[0];
+    await createSession({ role: "master", masterId: master.id, nome: master.nome, apelido, codfunc: 0, codvend: 0, codemp: 0 });
+    console.info(`[login] ok ${master.nome} — master`);
+    keys.forEach(clearFailures);
+    redirect("/dashboard");
   }
 
   try {
@@ -78,6 +91,7 @@ const formatPhone = (tel: string) =>
 export async function getBusinessCard(): Promise<BusinessCard> {
   const session = await getSession();
   if (!session) return { ok: false, error: "Sessão expirada. Entre novamente." };
+  if (session.role === "master" || session.role === "admin") return { ok: false, error: "Cartão disponível só para vendedores e gerentes." };
 
   try {
     const contact = await fetchContact(session.codemp, session.codfunc);

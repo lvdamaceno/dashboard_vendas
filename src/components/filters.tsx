@@ -19,13 +19,18 @@ interface Props {
   today: string;
   vendedor?: number;
   team: { codigo: number; nome: string }[];
+  /** Master e admin: lojas para escolher (vazio = sem filtro de loja) */
+  stores?: { codigo: number; nome: string }[];
+  loja?: number;
+  /** Gerente, master e admin veem o cartão; master e admin não têm cartão */
+  showCard?: boolean;
 }
 
 // Alvos de toque de 44px no celular; um pouco mais compactos a partir do tablet
 const control =
   "h-11 w-full min-w-0 rounded-full border border-line bg-surface px-4 text-base outline-none focus:border-accent focus:ring-3 focus:ring-accent/15 md:h-10 md:text-sm";
 
-export function Filters({ preset, from, to, today, vendedor, team }: Props) {
+export function Filters({ preset, from, to, today, vendedor, team, stores = [], loja, showCard = true }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -34,17 +39,18 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
   // Semana e mês vão até o fim do período; o período personalizado não passa de hoje
   const [ate, setAte] = useState(to > today ? today : to);
 
-  function navigate(next: { periodo: Preset; de?: string; ate?: string; vendedor?: number }) {
+  function navigate(next: { periodo: Preset; de?: string; ate?: string; vendedor?: number; loja?: number }) {
     const params = new URLSearchParams({ periodo: next.periodo });
     if (next.periodo === "periodo" && next.de && next.ate) {
       params.set("de", next.de);
       params.set("ate", next.ate);
     }
+    if (next.loja) params.set("loja", String(next.loja));
     if (next.vendedor) params.set("vendedor", String(next.vendedor));
     startTransition(() => router.push(`${pathname}?${params}`, { scroll: false }));
   }
 
-  const current = { periodo: preset, de: from, ate: to, vendedor };
+  const current = { periodo: preset, de: from, ate: to, vendedor, loja };
 
   return (
     <div className="space-y-2 md:flex md:flex-wrap md:items-center md:gap-2 md:space-y-0" aria-busy={pending}>
@@ -72,9 +78,11 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
             );
           })}
         </div>
-        <div className="flex md:order-last md:ml-auto">
-          <BusinessCard />
-        </div>
+        {showCard && (
+          <div className="flex md:order-last md:ml-auto">
+            <BusinessCard />
+          </div>
+        )}
       </div>
 
       {custom && (
@@ -94,6 +102,23 @@ export function Filters({ preset, from, to, today, vendedor, team }: Props) {
             Aplicar período
           </button>
         </form>
+      )}
+
+      {stores.length > 0 && (
+        <select
+          aria-label="Loja"
+          value={loja ?? ""}
+          // Trocar de loja limpa o vendedor, que é de outra equipe
+          onChange={(e) => navigate({ ...current, loja: Number(e.target.value) || undefined, vendedor: undefined })}
+          className={`${control} md:w-56`}
+        >
+          <option value="">Todas as lojas</option>
+          {stores.map((s) => (
+            <option key={s.codigo} value={s.codigo}>
+              {s.nome}
+            </option>
+          ))}
+        </select>
       )}
 
       {team.length > 0 && (

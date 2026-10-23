@@ -2,7 +2,7 @@ import "server-only";
 import { env } from "./env";
 import { addDays, todayIso, type Period } from "./period";
 import { countVendas, isDevolucao, isVenda, n, s, salesWhere, scopeWhere, sign } from "./sales";
-import type { Session } from "./session";
+import { isManagerial, type Session } from "./session";
 import { query } from "./sankhya/client";
 import { date, dayKey, inList, limit } from "./sankhya/sql";
 
@@ -109,7 +109,7 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
   const where = salesWhere(session, period.from, period.to, vendedor);
   const vendas = `${where}\n AND ${isVenda()}`;
   const today = todayIso();
-  const isManager = session.role === "gerente";
+  const isManager = isManagerial(session);
   const weekday = `(DATEDIFF(DAY, ${date("1900-01-01")}, CAB.DTNEG) % 7)`; // 01/01/1900 foi segunda-feira
   const hhmm = `FLOOR(CAB.HRMOV / 100)`;
 

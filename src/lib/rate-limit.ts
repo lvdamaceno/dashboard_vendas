@@ -1,4 +1,11 @@
 import "server-only";
+import { headers } from "next/headers";
+
+/** IP de quem fez a requisição. No Render (Cloudflare na frente) o IP real vem em True-Client-IP. */
+export async function clientIp() {
+  const h = await headers();
+  return h.get("true-client-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+}
 
 // Limitador em memória para tentativas de login (suficiente para uma instância;
 // com várias instâncias, troque por Redis ou limite no proxy reverso).

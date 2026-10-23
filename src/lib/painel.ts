@@ -1,0 +1,129 @@
+import "server-only";
+import { sql } from "./db";
+import { seesAllStores, userKey, type Session } from "./session";
+
+// Dados próprios do painel no Postgres (schema "painel"): masters, avisos e sugestões.
+
+export interface Master {
+  id: number;
+  cpf: string;
+  nome: string;
+  criadoEm: Date;
+}
+
+export async function findMaster(cpf: string): Promise<{ id: number; nome: string } | null> {
+  const rows = await sql<{ id: number; nome: string }>(`SELECT id, nome FROM painel.usuario_master WHERE cpf = $1`, [cpf]);
+  return rows[0] ?? null;
+}
+
+export async function masterExists(id: number) {
+  const rows = await sql(`SELECT 1 FROM painel.usuario_master WHERE id = $1`, [id]);
+  return rows.length > 0;
+}
+
+export async function listMasters() {
+  return sql<Master>(`SELECT id, cpf, nome, criado_em AS "criadoEm" FROM painel.usuario_master ORDER BY nome`);
+}
+
+export async function addMaster(cpf: string, nome: string) {
+  await sql(`INSERT INTO painel.usuario_master (cpf, nome) VALUES ($1, $2) ON CONFLICT (cpf) DO UPDATE SET nome = EXCLUDED.nome`, [cpf, nome]);
+}
+
+export async function removeMaster(id: number) {
+  await sql(`DELETE FROM painel.usuario_master WHERE id = $1`, [id]);
+}
+
+export interface Notice {
+  id: number;
+  titulo: string;
+  mensagem: string;
+  /** null = todas as lojas */
+  codemp: number | null;
+  autorNome: string;
+  autorPapel: "admin" | "master" | "gerente";
+  criadoEm: Date;
+  novo: boolean;
+}
+
+/**
+ * Avisos que a pessoa vê: master e admin veem todos; vendedor e gerente, os de
+ * todas as lojas e os da própria loja. "novo" = criado depois da última vez que abriu o sino.
+ */
+export async function listNotices(session: Session, max = 30) {
+  const all = seesAllStores(session);
+  return sql<Notice>(
+    `SELECT a.id, a.titulo, a.mensagem, a.codemp, a.autor_nome AS "autorNome", a.autor_papel AS "autorPapel",
+            a.criado_em AS "criadoEm", (v.visto_em IS NULL OR a.criado_em > v.visto_em) AS novo
+       FROM painel.aviso a
+       LEFT JOIN painel.aviso_visto v ON v.usuario = $1
+      WHERE $2::boolean OR a.codemp IS NULL OR a.codemp = $3
+      ORDER BY a.criado_em DESC
+      LIMIT $4`,
+    [userKey(session), all, session.codemp, max],
+  );
+}
+
+export async function markNoticesSeen(session: Session) {
+  await sql(
+    `INSERT INTO painel.aviso_visto (usuario, visto_em) VALUES ($1, now())
+     ON CONFLICT (usuario) DO UPDATE SET visto_em = now()`,
+    [userKey(session)],
+  );
+}
+
+export async function createNotice(n: { titulo: string; mensagem: string; codemp: number | null; autorNome: string; autorPapel: Notice["autorPapel"] }) {
+  await sql(`INSERT INTO painel.aviso (titulo, mensagem, codemp, autor_nome, autor_papel) VALUES ($1, $2, $3, $4, $5)`, [
+    n.titulo,
+    n.mensagem,
+    n.codemp,
+    n.autorNome,
+    n.autorPapel,
+  ]);
+}
+
+export async function deleteNotice(id: number) {
+  await sql(`DELETE FROM painel.aviso WHERE id = $1`, [id]);
+}
+
+export interface Feedback {
+  id: number;
+  tipo: "sugestao" | "erro";
+  mensagem: string;
+  autorNome: string;
+  autorPapel: string;
+  codemp: number | null;
+  codvend: number | null;
+  pagina: string | null;
+  navegador: string | null;
+  concluido: boolean;
+  concluidoEm: Date | null;
+  criadoEm: Date;
+}
+
+export async function createFeedback(f: Omit<Feedback, "id" | "concluido" | "concluidoEm" | "criadoEm">) {
+  await sql(
+    `INSERT INTO painel.feedback (tipo, mensagem, autor_nome, autor_papel, codemp, codvend, pagina, navegador)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [f.tipo, f.mensagem, f.autorNome, f.autorPapel, f.codemp, f.codvend, f.pagina, f.navegador],
+  );
+}
+
+export async function listFeedback(filtro: "pendentes" | "concluidos" | "todos") {
+  const where = filtro === "todos" ? "" : `WHERE concluido = ${filtro === "concluidos"}`;
+  return sql<Feedback>(
+    `SELECT id, tipo, mensagem, autor_nome AS "autorNome", autor_papel AS "autorPapel", codemp, codvend, pagina, navegador,
+            concluido, concluido_em AS "concluidoEm", criado_em AS "criadoEm"
+       FROM painel.feedback ${where}
+      ORDER BY criado_em DESC
+      LIMIT 200`,
+  );
+}
+
+export async function countPendingFeedback() {
+  const [row] = await sql<{ total: number }>(`SELECT count(*)::int AS total FROM painel.feedback WHERE NOT concluido`);
+  return row?.total ?? 0;
+}
+
+export async function setFeedbackDone(id: number, done: boolean) {
+  await sql(`UPDATE painel.feedback SET concluido = $2, concluido_em = CASE WHEN $2 THEN now() END WHERE id = $1`, [id, done]);
+}

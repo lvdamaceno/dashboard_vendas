@@ -4,18 +4,43 @@ import { EncryptJWT, jwtDecrypt } from "jose";
 import { z } from "zod";
 import { env } from "./env";
 
-const sessionSchema = z.object({
-  /** Funcionário (TFPFUN) de quem entrou */
+const baseSchema = z.object({
+  /** Funcionário (TFPFUN) de quem entrou; 0 para master e admin */
   codfunc: z.number().int(),
   nome: z.string(),
-  codvend: z.number().int().positive(),
+  /** Vendedor (TGFVEN); 0 para master e admin */
+  codvend: z.number().int().nonnegative(),
   apelido: z.string(),
-  role: z.enum(["vendedor", "gerente"]),
-  /** Empresa do funcionário; para o gerente, a loja cujas vendas ele vê */
+  /** master: diretor (CPF cadastrado pelo admin); admin: entra com usuário e senha */
+  role: z.enum(["vendedor", "gerente", "master", "admin"]),
+  /** Empresa do funcionário; para o gerente, a loja cujas vendas ele vê; 0 = todas as lojas */
   codemp: z.number().int(),
+  /** painel.usuario_master.id */
+  masterId: z.number().int().positive().optional(),
+});
+
+const sessionSchema = baseSchema.extend({
+  /** Admin vendo o painel de um vendedor ou gerente */
+  como: baseSchema.extend({ role: z.enum(["vendedor", "gerente"]) }).optional(),
 });
 
 export type Session = z.infer<typeof sessionSchema>;
+export type ViewAs = NonNullable<Session["como"]>;
+
+/** Quem tem visão de loja (ranking, equipe, margem): gerente, master e admin. */
+export const isManagerial = (s: Session) => s.role !== "vendedor";
+/** Master e admin escolhem a loja (ou todas). */
+export const seesAllStores = (s: Session) => s.role === "master" || s.role === "admin";
+
+/** Sessão usada nas consultas: a do vendedor/gerente que o admin escolheu, se houver. */
+export const viewSession = (s: Session): Session => (s.role === "admin" && s.como ? s.como : s);
+
+/** Chave do usuário nas tabelas do painel (ex.: avisos já vistos). */
+export function userKey(s: Session) {
+  if (s.role === "admin") return "admin";
+  if (s.role === "master") return `m:${s.masterId}`;
+  return `f:${s.codemp}:${s.codfunc}:${s.codvend}`;
+}
 
 const isProd = process.env.NODE_ENV === "production";
 export const SESSION_COOKIE = isProd ? "__Host-dv_session" : "dv_session";

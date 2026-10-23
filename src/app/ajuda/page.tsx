@@ -50,6 +50,7 @@ const SECTIONS = [
   ["mais", "Mais indicadores"],
   ["gerentes", "Para gerentes"],
   ["cartao", "Cartão de visita (WhatsApp)"],
+  ["avisos", "Avisos e sugestões"],
   ["instalar", "Instalar no celular"],
   ["sair", "Sair e segurança"],
   ["duvidas", "Dúvidas frequentes"],
@@ -558,6 +559,27 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
       </Tip>
     </>,
   ],
+  avisos: [
+    <>
+      <p>
+        No canto de cima, à esquerda, fica o <strong>sino de avisos</strong>. Quando chega um aviso novo, aparece uma bolinha amarela nele.
+      </p>
+      <Steps>
+        <li>Toque no sino para ler os avisos. Os novos aparecem destacados.</li>
+        <li>
+          Gerentes também podem <strong>enviar avisos para a própria equipe</strong>: toque em <strong>+ Novo aviso para a equipe</strong>,
+          escreva o título e a mensagem e toque em <strong>Enviar aviso</strong>.
+        </li>
+      </Steps>
+    </>,
+    <>
+      <p>
+        No fim do painel tem o botão <strong>Enviar sugestão ou erro</strong>. Use para pedir uma melhoria ou contar algo que não
+        funcionou: escolha <strong>Sugestão</strong> ou <strong>Erro</strong>, escreva e toque em <strong>Enviar</strong>.
+      </p>
+      <Tip>No erro, conte o que você estava fazendo e o que apareceu na tela. Isso ajuda a resolver mais rápido.</Tip>
+    </>,
+  ],
   instalar: [
     <p key="intro">
       Você pode colocar o painel na tela inicial do celular, <strong>como se fosse um aplicativo</strong>. Assim não precisa digitar o
@@ -664,7 +686,8 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
         O sistema da loja demorou para responder. Espere um pouco e abra o painel de novo.
       </Term>
       <Term name="Sem internet funciona?">
-        Não. O painel precisa de internet para buscar os números. Sem conexão, aparece um aviso de “Sem conexão”.
+        Em parte. Com o painel instalado no celular, sem internet ele mostra os números da última vez que você abriu, com um aviso amarelo
+        dizendo de quando são. Para trocar o período ou o vendedor, a internet precisa voltar.
       </Term>
     </div>,
   ],

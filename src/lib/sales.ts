@@ -1,7 +1,7 @@
 import "server-only";
 import { env } from "./env";
 import type { Period } from "./period";
-import type { Session } from "./session";
+import { isManagerial, type Session } from "./session";
 import { query } from "./sankhya/client";
 import { date, dayKey, inList, int, limit } from "./sankhya/sql";
 
@@ -10,13 +10,14 @@ import { date, dayKey, inList, int, limit } from "./sankhya/sql";
  * criptografada (nunca de parâmetros enviados pelo navegador):
  *  - vendedor: apenas notas com o próprio CODVEND
  *  - gerente:  as notas da sua loja (TGFCAB.CODEMP = empresa do gerente)
+ *  - master/admin: a loja escolhida (codemp) ou todas (codemp 0)
  * O filtro opcional de vendedor do gerente é somado (AND) à restrição, então
  * nunca amplia o que ele pode ver.
  */
 export function scopeWhere(session: Session, vendedor?: number) {
   if (session.role === "vendedor") return [`CAB.CODVEND = ${int(session.codvend)}`];
 
-  const clauses = [`CAB.CODEMP = ${int(session.codemp)}`];
+  const clauses = session.role === "gerente" || session.codemp ? [`CAB.CODEMP = ${int(session.codemp)}`] : [];
   if (vendedor) clauses.push(`CAB.CODVEND = ${int(vendedor)}`);
   return clauses;
 }
@@ -66,6 +67,8 @@ export interface DashboardData {
   produtos: { codigo: number; nome: string; quantidade: number; total: number }[];
   clientes: { codigo: number; nome: string; pedidos: number; total: number }[];
   vendedores: { codigo: number; nome: string; pedidos: number; total: number }[];
+  /** só master/admin com todas as lojas */
+  lojas: { codigo: number; pedidos: number; total: number }[];
   pedidos: {
     nunota: number;
     numnota: number;
@@ -95,9 +98,9 @@ async function summary(session: Session, from: string, to: string, vendedor?: nu
 export async function getDashboardData(session: Session, period: Period, vendedor?: number): Promise<DashboardData> {
   const where = salesWhere(session, period.from, period.to, vendedor);
   const day = dayKey("CAB.DTNEG");
-  const isManager = session.role === "gerente";
+  const isManager = isManagerial(session);
 
-  const [atual, anterior, diario, produtos, clientes, vendedores, pedidos] = await Promise.all([
+  const [atual, anterior, diario, produtos, clientes, vendedores, lojas, pedidos] = await Promise.all([
     summary(session, period.from, period.to, vendedor),
     summary(session, period.prevFrom, period.prevTo, vendedor),
     query(
@@ -141,6 +144,16 @@ export async function getDashboardData(session: Session, period: Period, vendedo
             ORDER BY TOTAL DESC`,
         )
       : Promise.resolve([]),
+    // Todas as lojas (master/admin): ranking por loja
+    isManager && !session.codemp
+      ? query(
+          `SELECT CAB.CODEMP, ${countVendas()} AS PEDIDOS, SUM(CAB.VLRNOTA * ${sign()}) AS TOTAL
+             FROM TGFCAB CAB
+           ${where}
+            GROUP BY CAB.CODEMP
+            ORDER BY TOTAL DESC`,
+        )
+      : Promise.resolve([]),
     query(
       limit(
         `SELECT CAB.NUNOTA, CAB.NUMNOTA, ${day} AS DIA, PAR.NOMEPARC, VEN.APELIDO,
@@ -163,6 +176,7 @@ export async function getDashboardData(session: Session, period: Period, vendedo
     produtos: produtos.map((r) => ({ codigo: n(r.CODPROD), nome: s(r.DESCRPROD), quantidade: n(r.QTD), total: n(r.TOTAL) })),
     clientes: clientes.map((r) => ({ codigo: n(r.CODPARC), nome: s(r.NOMEPARC), pedidos: n(r.PEDIDOS), total: n(r.TOTAL) })),
     vendedores: vendedores.map((r) => ({ codigo: n(r.CODVEND), nome: s(r.APELIDO), pedidos: n(r.PEDIDOS), total: n(r.TOTAL) })),
+    lojas: lojas.map((r) => ({ codigo: n(r.CODEMP), pedidos: n(r.PEDIDOS), total: n(r.TOTAL) })),
     pedidos: pedidos.map((r) => ({
       nunota: n(r.NUNOTA),
       numnota: n(r.NUMNOTA),
@@ -175,13 +189,68 @@ export async function getDashboardData(session: Session, period: Period, vendedo
   };
 }
 
-/** Vendedores que o gerente pode filtrar (dentro do seu escopo). */
+/** Vendedores que o gerente pode filtrar (dentro do seu escopo); para master/admin, os da loja escolhida. */
 export async function getTeam(session: Session) {
-  if (session.role !== "gerente") return [];
+  if (!isManagerial(session) || !session.codemp) return [];
+  const equipe = session.role === "gerente" ? ` OR VEN.CODGER = ${int(session.codvend)}` : "";
   const rows = await query(
     `SELECT VEN.CODVEND, VEN.APELIDO FROM TGFVEN VEN
-      WHERE VEN.ATIVO = 'S' AND (VEN.CODEMP = ${int(session.codemp)} OR VEN.CODGER = ${int(session.codvend)})
+      WHERE VEN.ATIVO = 'S' AND (VEN.CODEMP = ${int(session.codemp)}${equipe})
       ORDER BY VEN.APELIDO`,
   );
   return rows.map((r) => ({ codigo: n(r.CODVEND), nome: s(r.APELIDO) }));
+}
+
+/** Lojas (empresas com vendedor ativo), para o filtro de master/admin e os avisos. */
+export async function getStores() {
+  const rows = await query(
+    `SELECT EMP.CODEMP, EMP.NOMEFANTASIA FROM TSIEMP EMP
+      WHERE EXISTS (SELECT 1 FROM TGFVEN VEN WHERE VEN.CODEMP = EMP.CODEMP AND VEN.ATIVO = 'S')
+      ORDER BY EMP.CODEMP`,
+  );
+  return rows.map((r) => ({ codigo: n(r.CODEMP), nome: s(r.NOMEFANTASIA) || `Loja ${n(r.CODEMP)}` }));
+}
+
+export interface Person {
+  codvend: number;
+  nome: string;
+  role: "vendedor" | "gerente";
+  codemp: number;
+}
+
+/**
+ * Vendedores e gerentes ativos (TGFVEN), para o admin escolher de quem ver o painel.
+ * Mesma regra do login: TIPVEND S ou G é gerente da loja TGFVEN.CODEMP.
+ */
+export async function getPeople(): Promise<Person[]> {
+  const rows = await query(
+    `SELECT VEN.CODVEND, VEN.APELIDO, VEN.CODEMP, VEN.TIPVEND FROM TGFVEN VEN
+      WHERE VEN.ATIVO = 'S' AND VEN.CODVEND > 0
+      ORDER BY VEN.APELIDO`,
+  );
+  return rows.map((r) => ({
+    codvend: n(r.CODVEND),
+    nome: s(r.APELIDO),
+    role: r.TIPVEND === "S" || r.TIPVEND === "G" ? "gerente" : "vendedor",
+    codemp: n(r.CODEMP),
+  }));
+}
+
+/** Monta a visão de um vendedor/gerente para o admin (sempre relida do Sankhya pelo código). */
+export async function personView(codvend: number) {
+  const [r] = await query(
+    `SELECT VEN.CODVEND, VEN.APELIDO, VEN.CODEMP, VEN.TIPVEND, COALESCE(VEN.CODFUNC, 0) AS CODFUNC
+       FROM TGFVEN VEN
+      WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`,
+  );
+  if (!r) return null;
+  const gerente = r.TIPVEND === "S" || r.TIPVEND === "G";
+  return {
+    codfunc: n(r.CODFUNC),
+    codvend: n(r.CODVEND),
+    codemp: n(r.CODEMP),
+    nome: s(r.APELIDO),
+    apelido: s(r.APELIDO),
+    role: gerente ? ("gerente" as const) : ("vendedor" as const),
+  };
 }

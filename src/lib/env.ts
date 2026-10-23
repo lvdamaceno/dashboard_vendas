@@ -13,6 +13,9 @@ const list = (re: RegExp) =>
     )
     .refine((items) => items.every((i) => re.test(i)), "valor inválido na lista");
 
+// Variável vazia no .env conta como não definida
+const optional = <T extends z.ZodTypeAny>(type: T) => z.preprocess((v) => (v === "" ? undefined : v), type.optional());
+
 const schema = z.object({
   SANKHYA_API_URL: z.string().url().default("https://api.sankhya.com.br"),
   SANKHYA_CLIENT_ID: z.string().min(1, "obrigatório (Área do Desenvolvedor Sankhya)"),
@@ -28,6 +31,11 @@ const schema = z.object({
     .string()
     .regex(/^CUS[A-Z]{2,10}$/, "nome de coluna de TGFCUS, ex.: CUSGER")
     .default("CUSGER"),
+  // Área de admin (/admin/login); sem os dois, o acesso de admin fica desligado
+  ADMIN_USER: optional(z.string()),
+  ADMIN_PASSWORD: optional(z.string().min(12, "ADMIN_PASSWORD precisa ter ao menos 12 caracteres")),
+  // Repositório onde o admin abre issues a partir das sugestões
+  GITHUB_REPO: optional(z.string().regex(/^[\w.-]+\/[\w.-]+$/, "formato dono/repositorio")).transform((v) => v ?? "lvdamaceno/dashboard_vendas"),
 });
 
 export type Env = z.infer<typeof schema>;
