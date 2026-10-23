@@ -1,5 +1,6 @@
 import "server-only";
 import { env } from "../env";
+import { recordCacheHit, recordSankhya } from "../monitor";
 
 /** REJECTED = o Sankhya respondeu e recusou a operação (status "0") */
 export type SankhyaErrorCode = "SESSION_EXPIRED" | "REJECTED" | "SERVICE" | "NETWORK";
@@ -151,6 +152,18 @@ async function executeQuery(sql: string, accessToken: string): Promise<Row[]> {
 }
 
 async function run(sql: string): Promise<Row[]> {
+  const started = Date.now();
+  try {
+    const rows = await runOnce(sql);
+    recordSankhya(Date.now() - started);
+    return rows;
+  } catch (err) {
+    recordSankhya(Date.now() - started, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}
+
+async function runOnce(sql: string): Promise<Row[]> {
   try {
     return await executeQuery(sql, await getToken());
   } catch (err) {
@@ -180,7 +193,10 @@ export async function query(sql: string, { ttlMs = DEFAULT_TTL_MS }: { ttlMs?: n
   if (ttlMs <= 0) return run(sql);
   const now = Date.now();
   const hit = cache.get(sql);
-  if (hit && hit.expiresAt > now) return hit.rows;
+  if (hit && hit.expiresAt > now) {
+    recordCacheHit();
+    return hit.rows;
+  }
 
   const rows = run(sql);
   cache.set(sql, { expiresAt: now + ttlMs, rows });

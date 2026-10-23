@@ -202,6 +202,25 @@ na aba do admin) dá para **criar feriados** (decretos, loja fechada), marcar qu
 calendário, marcar um **domingo com expediente** (conta como dia útil naquele mês; não é copiado) e **copiar os ajustes do
 ano anterior** — feriados móveis acompanham a data nova. Ajustes em `painel.feriado`.
 
+## Saúde do app (admin)
+
+Aba **Saúde** do admin, medida na hora em que abre:
+
+- **Status geral** (verde / atenção / problema) a partir das verificações abaixo.
+- **Conexões externas:** Postgres (`SELECT` no schema `painel`) e Sankhya (OAuth + uma consulta mínima, sem cache), com
+  o tempo de cada um e o último erro do Sankhya.
+- **Servidor:** há quanto tempo está no ar, memória, versão (`RENDER_GIT_COMMIT`) e quais variáveis de ambiente faltam
+  (sem mostrar valores).
+- **Uso:** desde o último reinício (consultas ao Sankhya, falhas, tempo médio e p95, % de respostas do cache, logins
+  aceitos e recusados) e pelo banco (acessos hoje e em 7 dias, erros e alertas em 24h, fila de hoje, sugestões
+  pendentes, avisos, lojas com meta, masters, lembretes, fotos).
+- **Logs com busca** por texto e nível: últimos 30 dias de erros, alertas e acessos (`painel.evento`) ou tudo desde o
+  último reinício (memória, últimas 2.000 linhas).
+
+O `src/instrumentation.ts` liga o monitor (`src/lib/monitor*.ts`): copia o console do servidor para a memória, grava
+erros, alertas e linhas `[login]`/`[admin]` no banco em lotes a cada 5 s (apagando o que passa de 30 dias) e registra os
+erros de página do Next (`onRequestError`). O log completo da hospedagem continua no Render.
+
 ## Lembretes (admin)
 
 Aba **Lembretes** do admin: título, mensagem, público (diretoria, gerentes, vendedores ou todos) e repetição — todo mês
@@ -245,6 +264,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `meta` | Metas mensais por loja: `codvend` 0 = meta da loja, -1 = meta por vendedor |
 | `meta_pessoa` | Pessoas consideradas na meta individual de cada loja no mês (uma loja por pessoa) |
 | `feriado` | Feriados criados e dias em que a loja abre num feriado (ajustes do calendário) |
+| `evento` | Erros, alertas e acessos para a tela Saúde (30 dias) |
 | `lembrete` | Lembretes recorrentes do admin (viram avisos no sino) |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |

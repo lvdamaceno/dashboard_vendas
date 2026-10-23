@@ -12,12 +12,15 @@ import { getSession } from "@/lib/session";
 import { deleteMaster, removeNotice, removeReminder, toggleFeedback, toggleReminder } from "./actions";
 import { ConfirmButton, MasterForm, NoticeForm, ReminderForm } from "./forms";
 import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
+import { configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type Check } from "@/lib/health";
+import type { Nivel } from "@/lib/monitor";
 import { HolidaysManager } from "../feriados/holidays-manager";
 import { todayIso } from "@/lib/period";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const TABS = [
+  { value: "saude", label: "Saúde" },
   { value: "sugestoes", label: "Sugestões e erros" },
   { value: "avisos", label: "Avisos" },
   { value: "lembretes", label: "Lembretes" },
@@ -164,6 +167,184 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                 ))}
               </ul>
             )}
+          </section>
+        </>
+      );
+    }
+
+    if (tab === "saude") {
+      const nivelParam = one(sp.nivel);
+      const nivel: Nivel | "todos" = nivelParam === "error" || nivelParam === "warn" || nivelParam === "info" ? nivelParam : "todos";
+      const fonte = one(sp.fonte) === "memoria" ? "memoria" : "banco";
+      const q = (one(sp.q) ?? "").slice(0, 100);
+      const [conexoes, uso, logs] = await Promise.all([
+        connectionChecks(),
+        usageStats().catch(() => null),
+        searchLogs(fonte, q, nivel).catch(() => []),
+      ]);
+      const servidor = serverInfo();
+      const config = configChecks();
+      const problemas = [!conexoes.postgres.ok && "banco do painel", !conexoes.sankhya.ok && "Sankhya", ...config.filter((c) => !c.ok).map((c) => c.nome)].filter(Boolean);
+      const atencao = !problemas.length && ((uso?.erros_24h ?? 0) > 0 || conexoes.sankhya.ms > 5000);
+      const fmtHora = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Sao_Paulo" });
+      const duracao = (ms: number) => {
+        const min = Math.floor(ms / 60_000);
+        return min < 60 ? `${min} min` : min < 1440 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${Math.floor(min / 1440)} dias`;
+      };
+      const Dot = ({ ok, warn }: { ok: boolean; warn?: boolean }) => (
+        <span className={`inline-block size-2.5 shrink-0 rounded-full ${ok ? (warn ? "bg-smile" : "bg-good") : "bg-bad"}`} aria-hidden />
+      );
+      const Conn = ({ nome, c }: { nome: string; c: Check }) => (
+        <li className="flex items-start gap-3 py-3">
+          <span className="mt-1.5">
+            <Dot ok={c.ok} warn={c.ok && c.ms > 3000} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              {nome} <span className="tabular text-sm font-normal text-ink-3">· {c.ms} ms</span>
+            </p>
+            <p className={`text-sm break-words ${c.ok ? "text-ink-2" : "text-bad"}`}>{c.detalhe}</p>
+          </div>
+        </li>
+      );
+      const Stat = ({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "bad" | "good" }) => (
+        <div className="rounded-2xl border border-line p-3">
+          <p className="text-xs text-ink-3">{label}</p>
+          <p className={`tabular mt-0.5 font-title text-xl font-semibold ${tone === "bad" ? "text-bad" : tone === "good" ? "text-good" : ""}`}>{value}</p>
+        </div>
+      );
+      const s = servidor.sankhya;
+      const linkLogs = (p: Record<string, string>) => `/admin?${new URLSearchParams({ aba: "saude", fonte, nivel, q, ...p })}`;
+      return (
+        <>
+          <section className={`${card} flex items-center gap-3 ${problemas.length ? "border-bad/40 bg-accent-soft" : atencao ? "border-smile/60" : "border-good/40"}`}>
+            <Dot ok={!problemas.length} warn={atencao} />
+            <div className="min-w-0 flex-1">
+              <p className="font-title font-medium">
+                {problemas.length ? `Com problema: ${problemas.join(", ")}` : atencao ? "Funcionando, com pontos de atenção" : "Tudo funcionando"}
+              </p>
+              <p className="text-xs text-ink-3">Verificado agora · {fmtHora.format(new Date())}</p>
+            </div>
+            <Link href={linkLogs({})} className={`${small} leading-9`}>
+              Atualizar
+            </Link>
+          </section>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className={card}>
+              <h2 className="text-base">Conexões externas</h2>
+              <ul className="divide-y divide-line">
+                <Conn nome="Banco do painel (Postgres)" c={conexoes.postgres} />
+                <Conn nome="Sankhya (API oficial)" c={conexoes.sankhya} />
+              </ul>
+              {s.ultimoErro && (
+                <p className="mt-2 rounded-xl bg-accent-soft px-3 py-2 text-xs text-bad">
+                  Último erro do Sankhya ({fmtHora.format(new Date(s.ultimoErro.at))}): {s.ultimoErro.msg}
+                </p>
+              )}
+            </section>
+            <section className={card}>
+              <h2 className="mb-2 text-base">Servidor</h2>
+              <ul className="space-y-1.5 text-sm">
+                <li>
+                  No ar há <strong>{duracao(Date.now() - servidor.noArDesde)}</strong> (desde {fmtHora.format(new Date(servidor.noArDesde))})
+                </li>
+                <li>
+                  Memória: <strong className="tabular">{servidor.memoriaMb} MB</strong> <span className="text-ink-3">(heap {servidor.heapMb} MB)</span>
+                </li>
+                <li className="text-ink-2">
+                  Node {servidor.node}
+                  {servidor.commit && <> · versão {servidor.commit}</>}
+                  {servidor.instancia && <> · {servidor.instancia}</>}
+                </li>
+              </ul>
+              <h3 className="mt-4 mb-1 text-sm font-medium">Configuração</h3>
+              <ul className="space-y-1 text-sm">
+                {config.map((c) => (
+                  <li key={c.nome} className="flex items-center gap-2">
+                    <Dot ok={c.ok} />
+                    <span className={c.ok ? "text-ink-2" : "text-bad"}>{c.nome}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+
+          <section className={card}>
+            <h2 className="mb-1 text-base">Uso</h2>
+            <p className="mb-3 text-xs text-ink-3">Desde o último reinício do servidor</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <Stat label="Consultas ao Sankhya" value={s.chamadas} />
+              <Stat label="Falhas do Sankhya" value={s.falhas} tone={s.falhas ? "bad" : undefined} />
+              <Stat label="Tempo médio / p95" value={`${s.medio} / ${s.p95} ms`} />
+              <Stat label="Respostas do cache" value={s.chamadas + s.cache ? `${Math.round((s.cache / (s.chamadas + s.cache)) * 100)}%` : "—"} />
+              <Stat label="Logins aceitos" value={servidor.logins.ok} />
+              <Stat label="Logins recusados" value={servidor.logins.recusados} tone={servidor.logins.recusados > 10 ? "bad" : undefined} />
+            </div>
+            {uso && (
+              <>
+                <p className="mt-4 mb-3 text-xs text-ink-3">Pelo banco do painel</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Stat label="Acessos hoje" value={uso.logins_hoje} />
+                  <Stat label="Acessos em 7 dias" value={`${uso.logins_7d} · ${uso.pessoas_7d} pessoas`} />
+                  <Stat label="Erros em 24h" value={uso.erros_24h} tone={uso.erros_24h ? "bad" : "good"} />
+                  <Stat label="Alertas em 24h" value={uso.alertas_24h} />
+                  <Stat label="Na fila hoje" value={`${uso.fila_hoje} · ${uso.fila_atendendo} atendendo`} />
+                  <Stat label="Sugestões pendentes" value={uso.sugestoes_pendentes} />
+                  <Stat label="Avisos em 7 dias" value={uso.avisos_7d} />
+                  <Stat label="Lojas com meta no mês" value={uso.lojas_com_meta} />
+                  <Stat label="Masters" value={uso.masters} />
+                  <Stat label="Lembretes ativos" value={uso.lembretes_ativos} />
+                  <Stat label="Fotos na fila" value={uso.fotos} />
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className={card}>
+            <h2 className="mb-3 text-base">Logs</h2>
+            <form action="/admin" className="mb-3 flex flex-wrap gap-2">
+              <input type="hidden" name="aba" value="saude" />
+              <input
+                name="q"
+                defaultValue={q}
+                placeholder="Procurar (ex.: sankhya, login, erro, nome)"
+                className="h-10 min-w-0 flex-1 basis-56 rounded-full border border-line bg-bg px-4 text-base outline-none focus:border-accent md:text-sm"
+              />
+              <select name="nivel" defaultValue={nivel} aria-label="Nível" className="h-10 rounded-full border border-line bg-bg px-3 text-sm">
+                <option value="todos">Todos os níveis</option>
+                <option value="error">Erros</option>
+                <option value="warn">Alertas</option>
+                <option value="info">Informações</option>
+              </select>
+              <select name="fonte" defaultValue={fonte} aria-label="De onde" className="h-10 rounded-full border border-line bg-bg px-3 text-sm">
+                <option value="banco">Últimos 30 dias (erros, alertas e acessos)</option>
+                <option value="memoria">Desde o último reinício (tudo)</option>
+              </select>
+              <button type="submit" className="h-10 rounded-full bg-accent px-5 font-title text-sm font-medium text-white hover:bg-accent-dark">
+                Procurar
+              </button>
+            </form>
+            {logs.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-3">Nada encontrado.</p>
+            ) : (
+              <ul className="max-h-[32rem] divide-y divide-line overflow-y-auto rounded-2xl border border-line font-mono text-xs">
+                {logs.map((l, i) => (
+                  <li key={`${l.at}-${i}`} className="flex gap-3 px-3 py-2">
+                    <span className="tabular shrink-0 text-ink-3">{fmtHora.format(new Date(l.at))}</span>
+                    <span
+                      className={`shrink-0 font-semibold ${l.nivel === "error" ? "text-bad" : l.nivel === "warn" ? "text-[#a86a00]" : "text-ink-3"}`}
+                    >
+                      {l.nivel === "error" ? "ERRO" : l.nivel === "warn" ? "ALERTA" : "INFO"}
+                    </span>
+                    <span className="min-w-0 break-words whitespace-pre-wrap">{l.msg}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-xs text-ink-3">
+              Mostrando até 200 linhas, das mais novas para as mais antigas. O log completo da hospedagem fica no painel do Render.
+            </p>
           </section>
         </>
       );

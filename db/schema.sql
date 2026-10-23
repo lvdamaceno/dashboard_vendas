@@ -145,3 +145,13 @@ CREATE TABLE IF NOT EXISTS painel.lembrete (
   CHECK (recorrencia <> 'semanal' OR dia BETWEEN 0 AND 6),
   CHECK (recorrencia <> 'unica' OR data IS NOT NULL)
 );
+
+-- Registro de erros, alertas e acessos (logins, ações do admin) para a tela Saúde do admin.
+-- Guardado por 30 dias; os logs completos ficam só em memória, desde o último reinício.
+CREATE TABLE IF NOT EXISTS painel.evento (
+  id        bigserial PRIMARY KEY,
+  criado_em timestamptz NOT NULL DEFAULT now(),
+  nivel     text NOT NULL CHECK (nivel IN ('info', 'warn', 'error')),
+  mensagem  text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS evento_criado_em_idx ON painel.evento (criado_em DESC);
