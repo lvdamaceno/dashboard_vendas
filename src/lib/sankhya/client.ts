@@ -2,8 +2,11 @@ import "server-only";
 import { env } from "../env";
 import { recordCacheHit, recordSankhya } from "../monitor";
 
-/** REJECTED = o Sankhya respondeu e recusou a operação (status "0") */
-export type SankhyaErrorCode = "SESSION_EXPIRED" | "REJECTED" | "SERVICE" | "NETWORK";
+/**
+ * REJECTED = o Sankhya respondeu e recusou a operação (status "0").
+ * CONCURRENCY = cancelou porque a mesma sessão (o token) fez duas requisições ao mesmo tempo.
+ */
+export type SankhyaErrorCode = "SESSION_EXPIRED" | "REJECTED" | "CONCURRENCY" | "SERVICE" | "NETWORK";
 
 export class SankhyaError extends Error {
   constructor(
@@ -141,6 +144,9 @@ async function callService(serviceName: string, requestBody: unknown, accessToke
   const detail = `status ${data.status} ${data.tsError?.tsErrorCode ?? ""} "${data.statusMessage ?? ""}"`;
   logFailure(serviceName, started, detail);
   if (data.status === "3") throw new SankhyaError("Sessão do Sankhya expirada.", "SESSION_EXPIRED");
+  if (/concorr[eê]ncia/i.test(data.statusMessage ?? "")) {
+    throw new SankhyaError(data.statusMessage || "Requisição simultânea recusada pelo Sankhya.", "CONCURRENCY");
+  }
   throw new SankhyaError(data.statusMessage || "Erro no serviço do Sankhya.", "REJECTED");
 }
 
@@ -151,15 +157,50 @@ async function executeQuery(sql: string, accessToken: string): Promise<Row[]> {
   return rows.map((row) => Object.fromEntries(fields.map((f, i) => [f.name.toUpperCase(), row[i]])));
 }
 
+// --- limite de consultas simultâneas ---
+// Todas as consultas usam o mesmo token, que o Sankhya trata como uma sessão só; com muitas
+// ao mesmo tempo (o painel dispara várias de uma vez) ele cancela algumas por "concorrência".
+const MAX_CONCURRENT = 3;
+let running = 0;
+const waiting: (() => void)[] = [];
+
+async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (running >= MAX_CONCURRENT) await new Promise<void>((resolve) => waiting.push(resolve));
+  else running++;
+  try {
+    return await fn();
+  } finally {
+    // Passa a vaga direto para o próximo da fila (running continua igual)
+    const next = waiting.shift();
+    if (next) next();
+    else running--;
+  }
+}
+
+const CONCURRENCY_RETRIES = 2;
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function run(sql: string): Promise<Row[]> {
   const started = Date.now();
   try {
-    const rows = await runOnce(sql);
+    const rows = await withSlot(() => runWithRetry(sql));
     recordSankhya(Date.now() - started);
     return rows;
   } catch (err) {
     recordSankhya(Date.now() - started, err instanceof Error ? err.message : String(err));
     throw err;
+  }
+}
+
+async function runWithRetry(sql: string): Promise<Row[]> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await runOnce(sql);
+    } catch (err) {
+      if (!(err instanceof SankhyaError && err.code === "CONCURRENCY") || attempt >= CONCURRENCY_RETRIES) throw err;
+      // Espera um pouco, com variação, para as repetidas não baterem juntas de novo
+      await pause(200 + Math.random() * 400 * (attempt + 1));
+    }
   }
 }
 
