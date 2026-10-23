@@ -160,7 +160,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
   lojas e os da sua loja; o **gerente** envia para a própria loja; **master** e **admin** veem todos e enviam para uma loja
   ou para todas.
 - **Sugestões e erros**: botão flutuante discreto no canto inferior direito (abre o texto ao passar o mouse). Guarda a página e o navegador para ajudar a reproduzir.
-- **Admin** (`/admin/login`, usuário e senha em `ADMIN_USER`/`ADMIN_PASSWORD`; sem os dois o acesso fica desligado):
+- **Admin** (`/admin`: sem sessão de admin, o próprio endereço mostra o login com usuário e senha em `ADMIN_USER`/`ADMIN_PASSWORD`; sem os dois o acesso fica desligado):
   sugestões e erros (concluir/reabrir e **Criar issue no GitHub**, que abre o formulário de issue já preenchido em
   `GITHUB_REPO` — o repositório é público, então vai só a mensagem, sem o nome de quem enviou), avisos (enviar e apagar),
   usuários master e **Ver painéis** (busca por nome).

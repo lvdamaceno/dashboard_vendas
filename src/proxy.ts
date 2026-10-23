@@ -15,13 +15,13 @@ export async function proxy(request: NextRequest) {
     return session?.role === "admin" ? NextResponse.redirect(new URL("/admin", request.url)) : NextResponse.next();
   }
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
+  // /admin sem sessão de admin mostra o login de admin no próprio endereço (entrar troca a sessão)
+  if (isAdminArea && session?.role !== "admin") return NextResponse.rewrite(new URL("/admin/login", request.url));
   if (!session) {
-    const res = NextResponse.redirect(new URL(isAdminArea ? "/admin/login" : "/login", request.url));
+    const res = NextResponse.redirect(new URL("/login", request.url));
     res.cookies.delete(SESSION_COOKIE);
     return res;
   }
-  // Sessão de vendedor/gerente/master no admin: vai para o login do admin (entrar troca a sessão)
-  if (isAdminArea && session.role !== "admin") return NextResponse.redirect(new URL("/admin/login", request.url));
   return NextResponse.next();
 }
 
