@@ -1,8 +1,14 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { dismissLostClient } from "@/app/painel-actions";
 import { money } from "@/lib/format";
-import { SUMIDO_COMPRAS, SUMIDO_DIAS, type Insights } from "@/lib/insights";
+import type { Insights } from "@/lib/insights";
 import { formatDay } from "@/lib/period";
 
 type Cliente = NonNullable<Insights["sumidos"]>[number];
+
+const PAGE = 10;
 
 const WhatsIcon = () => (
   <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
@@ -10,21 +16,49 @@ const WhatsIcon = () => (
   </svg>
 );
 
-/** Clientes frequentes que pararam de comprar, com atalho para chamar no WhatsApp. */
-export function LostClients({ clientes }: { clientes: Cliente[] }) {
+/** Clientes frequentes que pararam de comprar, com atalho para chamar no WhatsApp; 10 por página. */
+export function LostClients({ clientes, compras, dias }: { clientes: Cliente[]; compras: number; dias: number }) {
+  const [removed, setRemoved] = useState<number[]>([]);
+  const [error, setError] = useState<string>();
+  const [, startTransition] = useTransition();
+  const list = clientes.filter((c) => !removed.includes(c.codigo));
+  const pages = Math.ceil(list.length / PAGE);
+  const [wanted, setPage] = useState(0);
+  // Ao tirar o último cliente da última página, volta uma página
+  const page = Math.min(wanted, Math.max(pages - 1, 0));
+  const visible = list.slice(page * PAGE, (page + 1) * PAGE);
+
+  function dismiss(c: Cliente) {
+    if (!confirm(`Tirar ${c.nome} da lista?\n\nUse quando o cliente não quer voltar. Se ele comprar de novo, volta a aparecer aqui.`)) return;
+    setError(undefined);
+    setRemoved((r) => [...r, c.codigo]);
+    startTransition(async () => {
+      const res = await dismissLostClient(c.codigo);
+      if (res.error) {
+        setRemoved((r) => r.filter((x) => x !== c.codigo));
+        setError(res.error);
+      }
+    });
+  }
+
   return (
     <section className="overflow-hidden rounded-3xl border border-line bg-surface">
       <div className="px-5 pt-5 pb-3">
         <h2 className="text-base">Clientes para chamar de volta</h2>
         <p className="mt-0.5 text-xs text-ink-3">
-          Compraram {SUMIDO_COMPRAS} vezes ou mais no último ano e não voltam há mais de {SUMIDO_DIAS} dias
+          Compraram {compras} vezes ou mais no último ano e não voltam há mais de {dias} dias
         </p>
       </div>
-      {clientes.length === 0 ? (
+      {error && (
+        <p role="alert" className="px-5 pb-3 text-sm text-bad">
+          {error}
+        </p>
+      )}
+      {list.length === 0 ? (
         <p className="px-4 pb-8 pt-4 text-center text-sm text-ink-3">Nenhum cliente frequente sumido</p>
       ) : (
         <ul className="divide-y divide-line border-t border-line">
-          {clientes.map((c) => (
+          {visible.map((c) => (
             <li key={c.codigo} className="flex items-center justify-between gap-3 px-5 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm" title={c.nome}>
@@ -34,23 +68,59 @@ export function LostClients({ clientes }: { clientes: Cliente[] }) {
                   Última compra {formatDay(c.ultima)} · <span className="whitespace-nowrap">{c.compras} compras · {money(c.total)}</span>
                 </p>
               </div>
-              {c.telefone ? (
-                <a
-                  href={`https://wa.me/55${c.telefone}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Chamar ${c.nome} no WhatsApp`}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#1f8f4e] px-3 font-title text-sm font-medium text-white hover:bg-[#187540]"
+              <div className="flex shrink-0 items-center gap-1">
+                {c.telefone ? (
+                  <a
+                    href={`https://wa.me/55${c.telefone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Chamar ${c.nome} no WhatsApp`}
+                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#1f8f4e] px-3 font-title text-sm font-medium text-white hover:bg-[#187540]"
+                  >
+                    <WhatsIcon />
+                    <span className="hidden sm:inline">WhatsApp</span>
+                  </a>
+                ) : (
+                  <span className="shrink-0 text-xs text-ink-3">sem celular</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => dismiss(c)}
+                  aria-label={`Tirar ${c.nome} da lista`}
+                  title="Tirar da lista"
+                  className="flex size-9 items-center justify-center rounded-full text-ink-3 hover:bg-bg-alt hover:text-bad"
                 >
-                  <WhatsIcon />
-                  <span className="hidden sm:inline">WhatsApp</span>
-                </a>
-              ) : (
-                <span className="shrink-0 text-xs text-ink-3">sem celular</span>
-              )}
+                  <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="m5.5 5.5 9 9m0-9-9 9" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
             </li>
           ))}
         </ul>
+      )}
+      {pages > 1 && (
+        <nav className="flex items-center justify-between gap-3 border-t border-line px-5 py-3" aria-label="Páginas de clientes">
+          <button
+            type="button"
+            onClick={() => setPage((p) => p - 1)}
+            disabled={page === 0}
+            className="h-9 rounded-full border border-line px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt disabled:opacity-40"
+          >
+            ‹ Anterior
+          </button>
+          <span className="tabular text-xs text-ink-3">
+            {page * PAGE + 1}–{page * PAGE + visible.length} de {list.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= pages - 1}
+            className="h-9 rounded-full border border-line px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt disabled:opacity-40"
+          >
+            Próxima ›
+          </button>
+        </nav>
       )}
     </section>
   );

@@ -46,3 +46,14 @@ CREATE TABLE IF NOT EXISTS painel.feedback (
   criado_em    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS feedback_pendente_idx ON painel.feedback (concluido, criado_em DESC);
+
+-- Clientes tirados da lista "Clientes para chamar de volta" (ex.: não querem voltar).
+-- Voltam a aparecer se comprarem de novo depois de dispensados.
+CREATE TABLE IF NOT EXISTS painel.cliente_dispensado (
+  codparc       integer PRIMARY KEY,
+  autor_nome    text NOT NULL,
+  autor_papel   text NOT NULL,
+  codemp        integer,
+  codvend       integer,
+  dispensado_em timestamptz NOT NULL DEFAULT now()
+);

@@ -2,8 +2,9 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { createFeedback, createNotice, markNoticesSeen } from "@/lib/painel";
-import { getSession, seesAllStores } from "@/lib/session";
+import { createFeedback, createNotice, dismissClient, markNoticesSeen } from "@/lib/painel";
+import { clientInScope } from "@/lib/sales";
+import { getSession, seesAllStores, viewSession } from "@/lib/session";
 
 // Avisos (sino) e sugestões/erros. Toda ação confere a sessão e o papel no servidor.
 
@@ -84,6 +85,32 @@ export async function sendFeedback(_prev: FormState, form: FormData): Promise<Fo
   } catch (err) {
     console.error("[sugestoes] erro ao registrar:", err instanceof Error ? err.message : err);
     return { error: "Não foi possível enviar. Tente novamente." };
+  }
+  return { ok: true };
+}
+
+/**
+ * Tira um cliente da lista "Clientes para chamar de volta" (ex.: avisou que não quer voltar).
+ * Só vale para clientes que compraram dentro do que a pessoa pode ver; volta à lista se comprar de novo.
+ */
+export async function dismissLostClient(codparc: number): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Sessão expirada. Entre novamente." };
+  if (!Number.isSafeInteger(codparc) || codparc <= 0) return { error: "Cliente inválido." };
+
+  try {
+    if (!(await clientInScope(viewSession(session), codparc))) return { error: "Cliente fora da sua carteira." };
+    await dismissClient({
+      codparc,
+      autorNome: session.nome || session.apelido,
+      autorPapel: session.role,
+      codemp: session.codemp || null,
+      codvend: session.codvend || null,
+    });
+    console.info(`[clientes] ${session.apelido} (${session.role}) tirou o cliente ${codparc} da lista de chamar de volta`);
+  } catch (err) {
+    console.error("[clientes] erro ao dispensar:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível tirar da lista. Tente novamente." };
   }
   return { ok: true };
 }

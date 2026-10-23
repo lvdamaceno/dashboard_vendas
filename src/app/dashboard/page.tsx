@@ -7,7 +7,7 @@ import { pedidosLabel, RankList } from "@/components/rank-list";
 import { SalesChart } from "@/components/sales-chart";
 import { VendorTable } from "@/components/vendor-table";
 import { money, number, percent } from "@/lib/format";
-import { getInsights, type Insights, type VendorStats } from "@/lib/insights";
+import { getInsights, SUMIDO_COMPRAS, SUMIDO_DIAS, type Insights, type VendorStats } from "@/lib/insights";
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
 import { masterExists, listNotices, type Notice } from "@/lib/painel";
 import { getDashboardData, getPeople, getStores, getTeam, type DashboardData, type Person } from "@/lib/sales";
@@ -303,7 +303,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         )}
       </div>
 
-      {insights.sumidos && <LostClients clientes={insights.sumidos} />}
+      {insights.sumidos && <LostClients key={`${loja ?? ""}-${vendedor ?? ""}`} clientes={insights.sumidos} compras={SUMIDO_COMPRAS} dias={SUMIDO_DIAS} />}
 
       <OrdersTable pedidos={data.pedidos} showVendedor={isManager} />
     </Shell>

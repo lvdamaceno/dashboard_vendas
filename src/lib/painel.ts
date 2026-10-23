@@ -127,3 +127,20 @@ export async function countPendingFeedback() {
 export async function setFeedbackDone(id: number, done: boolean) {
   await sql(`UPDATE painel.feedback SET concluido = $2, concluido_em = CASE WHEN $2 THEN now() END WHERE id = $1`, [id, done]);
 }
+
+/** Clientes tirados da lista de "chamar de volta": código → dia (AAAA-MM-DD, horário de Brasília) em que saíram. */
+export async function listDismissedClients() {
+  const rows = await sql<{ codparc: number; dia: string }>(
+    `SELECT codparc, to_char(dispensado_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS dia FROM painel.cliente_dispensado`,
+  );
+  return new Map(rows.map((r) => [r.codparc, r.dia]));
+}
+
+export async function dismissClient(d: { codparc: number; autorNome: string; autorPapel: string; codemp: number | null; codvend: number | null }) {
+  await sql(
+    `INSERT INTO painel.cliente_dispensado (codparc, autor_nome, autor_papel, codemp, codvend) VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (codparc) DO UPDATE SET autor_nome = EXCLUDED.autor_nome, autor_papel = EXCLUDED.autor_papel,
+       codemp = EXCLUDED.codemp, codvend = EXCLUDED.codvend, dispensado_em = now()`,
+    [d.codparc, d.autorNome, d.autorPapel, d.codemp, d.codvend],
+  );
+}

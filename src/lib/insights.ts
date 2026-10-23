@@ -2,6 +2,7 @@ import "server-only";
 import { env } from "./env";
 import { addDays, todayIso, type Period } from "./period";
 import { countVendas, isDevolucao, isVenda, n, s, salesWhere, scopeWhere, sign } from "./sales";
+import { listDismissedClients } from "./painel";
 import { isManagerial, type Session } from "./session";
 import { query } from "./sankhya/client";
 import { date, dayKey, inList, limit } from "./sankhya/sql";
@@ -49,7 +50,9 @@ export interface Insights {
 
 /** Clientes "sumidos": compraram ao menos SUMIDO_COMPRAS vezes no último ano e não voltam há SUMIDO_DIAS dias. */
 export const SUMIDO_DIAS = 60;
-export const SUMIDO_COMPRAS = 3;
+export const SUMIDO_COMPRAS = 2;
+/** Quantos clientes sumidos trazer (a tela mostra de 10 em 10) */
+const SUMIDO_MAX = 100;
 
 async function safe<T>(name: string, run: () => Promise<T>): Promise<T | null> {
   try {
@@ -218,6 +221,11 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
         `CAB.DTNEG >= ${date(addDays(today, -365))}`,
         ...scopeWhere(session, vendedor),
       ];
+      // Dispensados pelo vendedor (não querem voltar) somem até comprarem de novo; sem o banco, mostra todos
+      const dismissed = await listDismissedClients().catch((err) => {
+        console.error("[indicadores] clientes dispensados:", err instanceof Error ? err.message : err);
+        return new Map<number, string>();
+      });
       const rows = await query(
         limit(
           `SELECT PAR.CODPARC, PAR.NOMEPARC, PAR.TELEFONE, ${dayKey("MAX(CAB.DTNEG)")} AS ULTIMA,
@@ -228,10 +236,14 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
             GROUP BY PAR.CODPARC, PAR.NOMEPARC, PAR.TELEFONE
            HAVING MAX(CAB.DTNEG) < ${date(addDays(today, -SUMIDO_DIAS))} AND COUNT(DISTINCT CAB.NUNOTA) >= ${SUMIDO_COMPRAS}
             ORDER BY TOTAL DESC`,
-          10,
+          SUMIDO_MAX + Math.min(dismissed.size, 200),
         ),
       );
-      return rows.map((r) => ({
+      const visible = rows.filter((r) => {
+        const dia = dismissed.get(n(r.CODPARC));
+        return !dia || s(r.ULTIMA) > dia;
+      });
+      return visible.slice(0, SUMIDO_MAX).map((r) => ({
         codigo: n(r.CODPARC),
         nome: s(r.NOMEPARC),
         telefone: phone(r.TELEFONE),

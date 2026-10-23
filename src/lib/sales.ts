@@ -261,3 +261,10 @@ export async function personView(codvend: number) {
     role: gerente ? ("gerente" as const) : ("vendedor" as const),
   };
 }
+
+/** O cliente comprou dentro do escopo da sessão (vendedor: dele; gerente: da loja)? */
+export async function clientInScope(session: Session, codparc: number) {
+  const where = [`CAB.CODPARC = ${int(codparc)}`, isVenda(), ...scopeWhere(session)];
+  const rows = await query(limit(`SELECT CAB.NUNOTA FROM TGFCAB CAB WHERE ${where.join(" AND ")} ORDER BY CAB.NUNOTA`, 1));
+  return rows.length > 0;
+}

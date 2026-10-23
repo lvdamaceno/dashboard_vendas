@@ -137,7 +137,7 @@ log com o prefixo `[indicadores]`.
 | Vendas por categoria | itens agrupados por `TGFPRO.CODGRUPOPROD` → `TGFGRU.DESCRGRUPOPROD`, líquidos de devolução |
 | Produtos mais devolvidos | itens das notas de devolução, por produto |
 | Dia da semana / horário | `TGFCAB.DTNEG` e `TGFCAB.HRMOV` (aceita HHMM ou HHMMSS); dia da semana só com período ≥ 7 dias |
-| Clientes para chamar de volta | 3+ vendas nos últimos 365 dias e nenhuma há mais de 60 dias (`CODPARC > 0`), com WhatsApp por `TGFPAR.TELEFONE`; não depende do período escolhido |
+| Clientes para chamar de volta | 2+ vendas nos últimos 365 dias e nenhuma há mais de 60 dias (`CODPARC > 0`), com WhatsApp por `TGFPAR.TELEFONE`; não depende do período escolhido; até 100, 10 por página. O **×** tira o cliente da lista (`painel.cliente_dispensado`) para todos até ele comprar de novo |
 | Indicadores por vendedor (gerente) | peças por atendimento, desconto e devolução (pelos itens) de cada vendedor |
 | Margem bruta (gerente) | (receita − custo) ÷ receita dos itens com custo; custo = registro mais recente de `TGFCUS` até a data da venda, na coluna `MARGEM_CUSTO` (padrão `CUSGER`). Avisa quando falta custo em mais de 5% da receita |
 
@@ -154,6 +154,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `aviso` | Avisos do sino; `codemp` nulo = todas as lojas |
 | `aviso_visto` | Última vez que cada usuário abriu o sino (marca os novos) |
 | `feedback` | Sugestões e erros, com status concluído |
+| `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |
 
 - **Sino** (canto superior esquerdo): bolinha amarela quando há aviso novo. Vendedor e gerente veem os avisos de todas as
   lojas e os da sua loja; o **gerente** envia para a própria loja; **master** e **admin** veem todos e enviam para uma loja

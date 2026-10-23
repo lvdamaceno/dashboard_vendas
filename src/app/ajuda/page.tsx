@@ -476,14 +476,15 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     </>,
     <>
       <p>
-        <strong>Clientes para chamar de volta</strong> lista quem comprou 3 vezes ou mais no último ano e não volta há mais de 60 dias.
+        <strong>Clientes para chamar de volta</strong> lista quem comprou 2 vezes ou mais no último ano e não volta há mais de 60 dias.
         Essa lista não muda com o período escolhido.
       </p>
       <Shot name="sumidos" alt="Lista de clientes que pararam de comprar, com a data da última compra e o botão verde do WhatsApp" />
     </>,
     <Tip key="tip">
       Toque no <strong>botão verde</strong> ao lado do nome para abrir uma conversa com o cliente no WhatsApp. Quando o cadastro do
-      cliente não tem celular, aparece “sem celular”.
+      cliente não tem celular, aparece “sem celular”. Se o cliente disser que não quer voltar, toque no <strong>×</strong> para tirá-lo
+      da lista; se ele comprar de novo, volta a aparecer.
     </Tip>,
   ],
   gerentes: [
