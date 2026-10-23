@@ -29,7 +29,7 @@ export function GoalSummary({ progress }: { progress: GoalProgress }) {
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-base">Meta de {mes}</h2>
           <span className="text-xs text-ink-3">
-            {progress.diasUteis} dias úteis · {progress.restantes} {progress.restantes === 1 ? "restante" : "restantes"}
+            {p.diasUteis} dias úteis · {p.diasDepoisDeHoje} {p.diasDepoisDeHoje === 1 ? "restante" : "restantes"}
           </span>
         </div>
         <p className="tabular mt-2 font-title text-2xl font-semibold">
@@ -46,7 +46,7 @@ export function GoalSummary({ progress }: { progress: GoalProgress }) {
         </p>
         {p.ritmoNecessario !== null && (
           <p className="tabular mt-1 text-xs text-ink-3">
-            Para bater: {money(p.ritmoNecessario)} por dia útil nos {progress.diasDepoisDeHoje} dias úteis seguintes
+            Para bater: {money(p.ritmoNecessario)} por dia útil nos {p.diasDepoisDeHoje} dias úteis seguintes
           </p>
         )}
       </div>

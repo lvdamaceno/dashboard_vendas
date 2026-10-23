@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { deletePhoto, finishService, joinQueue, leaveQueue, nextWaiting, reorderQueue, savePhoto, startService } from "@/lib/fila";
+import { deletePhoto, finishService, joinQueue, leaveQueue, nextWaiting, reorderQueue, savePhoto, startService, type LossReason, type ServiceResult } from "@/lib/fila";
 import { sendPushLater } from "@/lib/push";
 import { loadQueue, queueStore, type QueueView } from "@/lib/fila-access";
 import { getSession } from "@/lib/session";
@@ -47,11 +47,17 @@ export async function enterQueue(): Promise<QueueResult> {
 }
 
 export async function serveCustomer(): Promise<QueueResult> {
-  return act(undefined, (codemp, codvend) => startService(codemp, codvend), "vendedor");
+  return act(undefined, (codemp, codvend, nome) => startService(codemp, codvend, nome), "vendedor");
 }
 
-export async function finishCustomer(): Promise<QueueResult> {
-  return act(undefined, (codemp, codvend) => finishService(codemp, codvend), "vendedor");
+const RESULTADOS = ["vendeu", "nao_vendeu", "so_olhando"] as const;
+const MOTIVOS = ["preco", "sem_produto", "vai_voltar", "outro"] as const;
+
+/** Terminou o atendimento, com o resultado (e o motivo, quando não vendeu). */
+export async function finishCustomer(resultado?: ServiceResult, motivo?: LossReason): Promise<QueueResult> {
+  const r = RESULTADOS.includes(resultado as ServiceResult) ? resultado : undefined;
+  const m = r === "nao_vendeu" && MOTIVOS.includes(motivo as LossReason) ? motivo : undefined;
+  return act(undefined, (codemp, codvend) => finishService(codemp, codvend, r, m), "vendedor");
 }
 
 export async function exitQueue(): Promise<QueueResult> {

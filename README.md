@@ -39,6 +39,23 @@ Capturas do sistema rodando com dados fictícios (nomes, valores e telefone inve
 |:---:|
 | <img src="docs/telas/admin-lembretes.png" width="640" alt="Lembretes recorrentes para diretoria, gerentes e vendedores"> |
 
+## Testes
+
+```bash
+npm run typecheck                     # tipos
+npm test                              # regras (Vitest): metas, dias úteis, lembretes, escopo de acesso, SQL, sessão, senha…
+TEST_DATABASE_URL=postgres://… npm test    # + testes de banco: fila, atendimentos, metas, avisos e lembretes
+npm run build && TEST_DATABASE_URL=postgres://… npm run test:e2e   # ponta a ponta (Playwright)
+```
+
+- `tests/unit`: funções puras (conta da meta em `src/lib/goal-math.ts`, feriados, ocorrências dos lembretes, escopo das
+  consultas por papel, helpers de SQL, sessão criptografada, hash de senha, valores e telefones).
+- `tests/db`: rodam só com `TEST_DATABASE_URL`, um **Postgres descartável**: criam o schema `painel` com `db/schema.sql`
+  e limpam as tabelas a cada teste. Nunca aponte para o banco de produção.
+- `tests/e2e`: o app compilado com um Sankhya simulado (`tests/e2e/fake-sankhya.mjs`) e o Postgres de teste: fila completa
+  com o resultado do atendimento, login da diretoria com senha, permissões.
+- **CI** (`.github/workflows/ci.yml`): roda tudo a cada push, com um Postgres de serviço do GitHub Actions.
+
 ## Rodando
 
 ```bash
@@ -194,6 +211,8 @@ o que já foi preenchido. Tabelas `painel.meta` (`codvend` 0 = loja, -1 = por ve
 
 - meta diária base = meta do mês ÷ dias úteis do mês;
 - saldo = vendido até ontem − base × dias úteis que já passaram (positivo = sobra, negativo = devendo);
+- folga, férias e atestado não mudam a conta: o dia continua valendo e quem não vendeu fica devendo (folgou um dia,
+  no seguinte a meta é de dois dias);
 - meta de hoje = base − saldo (nunca abaixo de zero): vender mais deixa a meta do dia seguinte menor; vender menos,
   maior;
 - projeção = vendido ÷ dias úteis decorridos × dias úteis do mês.
@@ -281,6 +300,11 @@ Botão **Fila** ao lado dos filtros do painel. Uma fila por loja por dia, em `pa
 - **Gerente da loja:** vê só a fila da loja dele (sem seletor), muda a ordem (↑ ↓) e tira alguém (×). O master escolhe a
   loja; o **admin** vê **todas as filas de uma vez** (só as lojas que vendem: as de `META_LOJAS_FORA` ficam de fora) (cada uma editável e atualizando sozinha) ou uma loja escolhida. O admin
   vendo o painel de um gerente ou vendedor vê a fila da loja dessa pessoa, com os controles de gerente.
+- **Resultado do atendimento:** "Atender cliente" abre um registro em `painel.atendimento`; "Terminei o atendimento" pergunta
+  **Vendeu / Não vendeu / Só olhando** e, se não vendeu, o motivo (preço, não tinha o produto, vai voltar, outro). Sair da
+  fila ou ser tirado no meio fecha o atendimento sem resultado. No painel, **Atendimentos da fila** (no período escolhido):
+  atendimentos, **conversão** (vendeu ÷ atendimentos com resultado), tempo médio e notas emitidas no Sankhya, por vendedor
+  (gerente) ou por loja (diretoria), e os **motivos de perda**. O vendedor vê os dele.
 - **Atualização:** a tela busca `/api/fila` a cada 4 s (só com a tela visível) e na hora depois de cada ação.
 - **Foto:** o vendedor envia a própria foto; o navegador recorta e reduz para JPEG 256×256 antes de enviar. O servidor
   confere que é JPEG (pelo conteúdo) e aceita até 300 KB. Fica em `painel.foto`, **uma por vendedor**: a nova substitui
@@ -307,6 +331,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `push_inscricao` | Celulares inscritos para notificações (um por navegador/aparelho) |
 | `config` | Configurações geradas pelo app (chaves VAPID) |
 | `lembrete` | Lembretes recorrentes do admin (viram avisos no sino) |
+| `atendimento` | Atendimentos da fila: início, fim, resultado (vendeu / não vendeu / só olhando) e motivo |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |
 | `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |

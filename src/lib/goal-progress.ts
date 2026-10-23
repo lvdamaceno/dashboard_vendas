@@ -2,30 +2,16 @@ import "server-only";
 import { monthWorkdays } from "./feriados";
 import { listGoalPeople, listGoals } from "./metas";
 import { todayIso } from "./period";
+import { goalMath, type GoalMath } from "./goal-math";
 import { salesByStoreAndVendor } from "./sales";
 import type { Session } from "./session";
 
-/**
- * Andamento das metas do mês atual.
- *  - meta diária base = meta do mês ÷ dias úteis do mês;
- *  - saldo = vendido até ontem − base × dias úteis que já passaram (positivo = sobra; negativo = devendo);
- *  - meta de hoje = base − saldo: quem vendeu mais tem meta menor hoje, quem vendeu menos, maior.
- */
-export interface GoalLine {
+/** Andamento das metas do mês atual. A conta (meta diária, saldo, ausências) está em goal-math.ts. */
+export interface GoalLine extends GoalMath {
   chave: number;
   nome: string;
-  meta: number;
   realizado: number;
   hoje: number;
-  /** meta diária base */
-  base: number;
-  saldo: number;
-  /** null quando hoje não é dia útil */
-  metaHoje: number | null;
-  /** faturamento esperado no fim do mês, no ritmo atual (por dia útil) */
-  projecao: number;
-  /** quanto vender por dia útil, depois de hoje, para bater a meta (null: não restam dias ou já bateu) */
-  ritmoNecessario: number | null;
   /** loja da pessoa (na lista de vendedores de todas as lojas) */
   loja?: string;
 }
@@ -33,12 +19,8 @@ export interface GoalLine {
 export interface GoalProgress {
   mes: string;
   diasUteis: number;
-  /** dias úteis depois de hoje */
-  restantes: number;
   hojeUtil: boolean;
   principal: GoalLine;
-  /** dias úteis depois de hoje (para o ritmo necessário) */
-  diasDepoisDeHoje: number;
   /** Listas de detalhe: por vendedor (loja) ou por loja e por vendedor (todas as lojas) */
   detalhes: { titulo: string; linhas: GoalLine[] }[];
 }
@@ -58,31 +40,16 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
   ]);
   if (!metas.size || !calendario.dias.length) return null;
 
-  const n = calendario.dias.length;
-  const passados = calendario.dias.filter((d) => d < today).length;
-  const hojeUtil = calendario.dias.includes(today);
-  const decorridos = passados + (hojeUtil ? 1 : 0);
-
-  const depois = n - decorridos;
-  const line = (chave: number, nome: string, meta: number, realizado: number, hoje: number): GoalLine => {
-    const base = meta / n;
-    const saldo = realizado - hoje - base * passados;
-    return {
-      ritmoNecessario: depois > 0 && realizado < meta ? (meta - realizado) / depois : null,
-      chave,
-      nome,
-      meta,
-      realizado,
-      hoje,
-      base,
-      saldo,
-      metaHoje: hojeUtil ? Math.max(0, base - saldo) : null,
-      projecao: decorridos ? (realizado / decorridos) * n : 0,
-    };
-  };
+  const line = (chave: number, nome: string, meta: number, realizado: number, hoje: number): GoalLine => ({
+    chave,
+    nome,
+    realizado,
+    hoje,
+    ...goalMath({ meta, realizado, hoje, diasUteis: calendario.dias, today }),
+  });
   const sum = (rows: typeof vendas) => ({ total: rows.reduce((a, r) => a + r.total, 0), hoje: rows.reduce((a, r) => a + r.hoje, 0) });
-  const byRatio = (a: GoalLine, b: GoalLine) => b.realizado / b.meta - a.realizado / a.meta;
-  const base = { mes, diasUteis: n, restantes: n - decorridos, hojeUtil, diasDepoisDeHoje: depois };
+  const byRatio = (a: GoalLine, b: GoalLine) => b.realizado / (b.meta || 1) - a.realizado / (a.meta || 1);
+  const base = { mes, diasUteis: calendario.dias.length, hojeUtil: calendario.dias.includes(today) };
 
   // Vendedor: a meta individual da loja em que foi considerado, com as vendas dele nessa loja
   if (view.role === "vendedor") {

@@ -89,8 +89,8 @@ let lastRun = 0;
  * condição garante uma entrega por ocorrência mesmo com várias instâncias. Ocorrências de antes da criação
  * do lembrete não são entregues.
  */
-export async function deliverDueReminders() {
-  if (Date.now() - lastRun < 60_000) return;
+export async function deliverDueReminders({ force = false } = {}) {
+  if (!force && Date.now() - lastRun < 60_000) return;
   lastRun = Date.now();
   const today = todayIso();
   const ativos = (await listReminders()).filter((r) => r.ativo);

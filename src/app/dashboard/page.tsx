@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Filters } from "@/components/filters";
 import { GoalSummary, GoalTable } from "@/components/goals";
+import { ServiceStatsSection } from "@/components/service-stats";
+import { serviceStats, type ServiceStats } from "@/lib/atendimentos";
 import { getGoalProgress, type GoalProgress } from "@/lib/goal-progress";
 import { KpiCard } from "@/components/kpi-card";
 import { LostClients } from "@/components/lost-clients";
@@ -59,6 +61,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   // Indicadores complementares: cada um chega por conta própria e aparece quando fica pronto
   // (Suspense), sem segurar o resto da tela
   const insights = getInsights(view, period, vendedor);
+  // Atendimentos registrados pela fila no período (conversão e motivos de perda)
+  const atendimentos = serviceStats(view, period.from, period.to, vendedor).catch((err): ServiceStats | null => {
+    console.error("[atendimentos]", err instanceof Error ? err.message : err);
+    return null;
+  });
   // Diretoria e admin: o mesmo período do ano passado, para ver o crescimento. Só até a data de hoje:
   // o período "mês" vai até o fim do mês, e comparar com o mês inteiro do ano passado seria injusto
   const ateHoje = period.to > todayIso() ? todayIso() : period.to;
@@ -241,6 +248,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       <Suspense fallback={null}>
         <Await promise={goals}>
           {(g) => g?.detalhes.map((d) => <GoalTable key={d.titulo} titulo={d.titulo} linhas={d.linhas} hojeUtil={g.hojeUtil} />)}
+        </Await>
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <Await promise={atendimentos}>
+          {(a) =>
+            a && (
+              <ServiceStatsSection
+                stats={a}
+                agrupar={!isManager || vendedor ? "nenhum" : allStores && !loja ? "loja" : "vendedor"}
+                lojas={stores}
+                notas={{
+                  total: data.atual.pedidos,
+                  // Notas por vendedor (gerente) ou por loja (todas as lojas), do mesmo período
+                  porChave: new Map(allStores && !loja ? data.lojas.map((l) => [l.codigo, l.pedidos]) : data.vendedores.map((v) => [v.codigo, v.pedidos])),
+                }}
+              />
+            )
+          }
         </Await>
       </Suspense>
 

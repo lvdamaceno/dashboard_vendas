@@ -15,7 +15,7 @@ export function AdminLoginForm() {
         <label htmlFor="usuario" className="text-sm font-medium">
           Usuário
         </label>
-        <input id="usuario" name="usuario" autoComplete="username" required maxLength={100} className={input} />
+        <input id="usuario" name="usuario" autoComplete="username" required maxLength={100} defaultValue={state.usuario} className={input} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="senha" className="text-sm font-medium">

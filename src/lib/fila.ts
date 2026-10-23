@@ -48,8 +48,18 @@ export async function joinQueue(codemp: number, codvend: number, nome: string) {
   sql(`DELETE FROM painel.fila WHERE dia < ${DIA} - 7`).catch(() => undefined);
 }
 
-/** Vai atender: marca como atendendo e vai para o fim da fila. */
-export async function startService(codemp: number, codvend: number) {
+export type ServiceResult = "vendeu" | "nao_vendeu" | "so_olhando";
+export type LossReason = "preco" | "sem_produto" | "vai_voltar" | "outro";
+
+/** Fecha atendimentos que ficaram abertos (saiu da fila, foi tirado, atendeu de novo sem terminar): sem resultado. */
+async function closeOpenServices(codvend: number) {
+  await sql(`UPDATE painel.atendimento SET fim = now() WHERE codvend = $1 AND fim IS NULL`, [codvend]);
+}
+
+/** Vai atender: marca como atendendo, vai para o fim da fila e abre o registro do atendimento. */
+export async function startService(codemp: number, codvend: number, nome: string) {
+  await closeOpenServices(codvend);
+  await sql(`INSERT INTO painel.atendimento (dia, codemp, codvend, nome) VALUES (${DIA}, $1, $2, $3)`, [codemp, codvend, nome]);
   await sql(
     `UPDATE painel.fila SET atendendo = true, atualizado_em = now(),
             posicao = (SELECT COALESCE(MAX(posicao), 0) + 1 FROM painel.fila WHERE dia = ${DIA} AND codemp = $1)
@@ -58,8 +68,12 @@ export async function startService(codemp: number, codvend: number) {
   );
 }
 
-/** Terminou o atendimento: volta a esperar na posição em que está. */
-export async function finishService(codemp: number, codvend: number) {
+/** Terminou o atendimento: volta a esperar na posição em que está e registra o resultado. */
+export async function finishService(codemp: number, codvend: number, resultado?: ServiceResult, motivo?: LossReason) {
+  await sql(
+    `UPDATE painel.atendimento SET fim = now(), resultado = $2, motivo = $3 WHERE codvend = $1 AND fim IS NULL`,
+    [codvend, resultado ?? null, resultado === "nao_vendeu" ? (motivo ?? null) : null],
+  );
   await sql(`UPDATE painel.fila SET atendendo = false, atualizado_em = now() WHERE dia = ${DIA} AND codemp = $1 AND codvend = $2`, [
     codemp,
     codvend,
@@ -67,6 +81,7 @@ export async function finishService(codemp: number, codvend: number) {
 }
 
 export async function leaveQueue(codemp: number, codvend: number) {
+  await closeOpenServices(codvend);
   await sql(`DELETE FROM painel.fila WHERE dia = ${DIA} AND codemp = $1 AND codvend = $2`, [codemp, codvend]);
 }
 

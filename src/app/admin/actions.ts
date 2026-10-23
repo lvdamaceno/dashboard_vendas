@@ -12,7 +12,8 @@ import { personView } from "@/lib/sales";
 import { cookies } from "next/headers";
 import { ADMIN_HINT, createSession, getSession, type Session, type ViewAs } from "@/lib/session";
 
-export type AdminState = { error?: string; ok?: boolean };
+/** usuario: devolvido no erro de login para o campo não ficar vazio (o React limpa o formulário depois da ação) */
+export type AdminState = { error?: string; ok?: boolean; usuario?: string };
 
 // Compara sem vazar pelo tempo de resposta (hash deixa os dois do mesmo tamanho)
 const same = (a: string, b: string) => timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
@@ -36,7 +37,7 @@ export async function adminLogin(_prev: AdminState, form: FormData): Promise<Adm
   if (!ok) {
     registerFailure(key);
     console.warn(`[admin] login recusado (ip ${ip})`);
-    return { error: "Usuário ou senha incorretos." };
+    return { error: "Usuário ou senha incorretos.", usuario: user };
   }
 
   clearFailures(key);

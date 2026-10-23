@@ -178,3 +178,18 @@ CREATE TABLE IF NOT EXISTS painel.push_inscricao (
   criado_em timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS push_inscricao_usuario_idx ON painel.push_inscricao (usuario);
+
+-- Atendimentos registrados pela fila: começa em "Atender cliente", termina em "Terminei" com o resultado.
+CREATE TABLE IF NOT EXISTS painel.atendimento (
+  id        bigserial PRIMARY KEY,
+  dia       date NOT NULL,
+  codemp    integer NOT NULL,
+  codvend   integer NOT NULL,
+  nome      text NOT NULL,
+  inicio    timestamptz NOT NULL DEFAULT now(),
+  fim       timestamptz,
+  resultado text CHECK (resultado IN ('vendeu', 'nao_vendeu', 'so_olhando')),
+  motivo    text CHECK (motivo IN ('preco', 'sem_produto', 'vai_voltar', 'outro'))
+);
+CREATE INDEX IF NOT EXISTS atendimento_loja_dia_idx ON painel.atendimento (codemp, dia);
+CREATE INDEX IF NOT EXISTS atendimento_aberto_idx ON painel.atendimento (codvend) WHERE fim IS NULL;

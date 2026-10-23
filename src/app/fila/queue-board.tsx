@@ -8,6 +8,7 @@ import { PushToggle } from "@/components/push-toggle";
 import type { QueueView } from "@/lib/fila-access";
 import type { Session } from "@/lib/session";
 import { enterQueue, exitQueue, finishCustomer, removeFromQueue, removePhoto, reorder, serveCustomer, uploadPhoto, type QueueResult } from "./actions";
+import type { LossReason, ServiceResult } from "@/lib/fila";
 import { Select } from "@/components/select";
 
 const POLL_MS = 4000;
@@ -177,13 +178,7 @@ export function QueueBoard({ initial, error: initialError, role, me, loja, lojaN
               </button>
             </>
           ) : mine.atendendo ? (
-            <>
-              <p className="font-title text-lg font-medium">Você está atendendo</p>
-              <p className="text-sm text-ink-2">Você já foi para o fim da fila. Quando terminar, toque abaixo.</p>
-              <button type="button" disabled={pending} onClick={() => run(finishCustomer)} className={`${button} mt-3 bg-accent text-white hover:bg-accent-dark`}>
-                Terminei o atendimento
-              </button>
-            </>
+            <FinishService pending={pending} onFinish={(resultado, motivo) => run(() => finishCustomer(resultado, motivo))} />
           ) : (
             <>
               <p className="font-title text-lg font-medium">{minhaVez ? "É a sua vez! 🎉" : `Você é o ${lugar}º da fila`}</p>
@@ -273,6 +268,77 @@ export function QueueBoard({ initial, error: initialError, role, me, loja, lojaN
       {/* Vendedor: "É a sua vez!" chega no celular mesmo com o painel fechado */}
       {role === "vendedor" && !compact && <PushToggle />}
     </div>
+  );
+}
+
+const RESULTADOS: { value: ServiceResult; label: string; icon: string }[] = [
+  { value: "vendeu", label: "Vendeu", icon: "✅" },
+  { value: "nao_vendeu", label: "Não vendeu", icon: "❌" },
+  { value: "so_olhando", label: "Só olhando", icon: "👀" },
+];
+const MOTIVOS: { value: LossReason; label: string }[] = [
+  { value: "preco", label: "Preço" },
+  { value: "sem_produto", label: "Não tinha o produto" },
+  { value: "vai_voltar", label: "Vai voltar" },
+  { value: "outro", label: "Outro" },
+];
+
+/** "Você está atendendo": ao terminar, a pessoa diz como foi (e, se não vendeu, o motivo). */
+function FinishService({ pending, onFinish }: { pending: boolean; onFinish: (r?: ServiceResult, m?: LossReason) => void }) {
+  const [etapa, setEtapa] = useState<"atendendo" | "resultado" | "motivo">("atendendo");
+  const choice = "flex h-14 flex-col items-center justify-center rounded-2xl border border-line bg-surface font-title text-sm font-medium hover:bg-bg-alt disabled:opacity-60";
+
+  if (etapa === "atendendo")
+    return (
+      <>
+        <p className="font-title text-lg font-medium">Você está atendendo</p>
+        <p className="text-sm text-ink-2">Você já foi para o fim da fila. Quando terminar, toque abaixo.</p>
+        <button type="button" disabled={pending} onClick={() => setEtapa("resultado")} className={`${button} mt-3 bg-accent text-white hover:bg-accent-dark`}>
+          Terminei o atendimento
+        </button>
+      </>
+    );
+
+  if (etapa === "resultado")
+    return (
+      <>
+        <p className="font-title text-lg font-medium">Como foi o atendimento?</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {RESULTADOS.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              disabled={pending}
+              onClick={() => (r.value === "nao_vendeu" ? setEtapa("motivo") : onFinish(r.value))}
+              className={choice}
+            >
+              <span className="text-xl" aria-hidden>
+                {r.icon}
+              </span>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={() => setEtapa("atendendo")} className="mt-3 text-sm text-ink-3 underline-offset-4 hover:underline">
+          Voltar
+        </button>
+      </>
+    );
+
+  return (
+    <>
+      <p className="font-title text-lg font-medium">Por que não vendeu?</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {MOTIVOS.map((m) => (
+          <button key={m.value} type="button" disabled={pending} onClick={() => onFinish("nao_vendeu", m.value)} className={`${choice} h-12`}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <button type="button" disabled={pending} onClick={() => onFinish("nao_vendeu")} className="mt-3 text-sm text-ink-3 underline-offset-4 hover:underline">
+        Pular
+      </button>
+    </>
   );
 }
 

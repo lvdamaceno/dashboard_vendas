@@ -744,9 +744,11 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     </>,
     <>
       <p>
-        <strong>5. Terminou?</strong> Toque em <strong>Terminei o atendimento</strong>. Você continua na fila, na posição em que está,
-        esperando a vez de novo. Não precisa entrar outra vez.
+        <strong>5. Terminou?</strong> Toque em <strong>Terminei o atendimento</strong> e diga como foi: <strong>✅ Vendeu</strong>,{" "}
+        <strong>❌ Não vendeu</strong> ou <strong>👀 Só olhando</strong>. Se não vendeu, escolha o motivo (preço, não tinha o produto,
+        vai voltar). Você continua na fila, esperando a vez de novo.
       </p>
+      <Tip>Com isso você e o gerente acompanham a sua conversão em “Atendimentos da fila”, no painel.</Tip>
       <Tip>
         Vai almoçar, sair para o estoque ou ir embora? Toque em <strong>Sair da fila</strong>, para ninguém esperar por você.
       </Tip>
