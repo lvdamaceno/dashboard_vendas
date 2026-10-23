@@ -7,7 +7,8 @@ import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
 import { fetchContact } from "@/lib/sankhya/contact";
 import { findMaster, getPhoneOverrides } from "@/lib/painel";
 import { formatPhone } from "@/lib/phone";
-import { createSession, destroySession, getSession } from "@/lib/session";
+import { cookies } from "next/headers";
+import { CLEAR_ADMIN_HINT, createSession, destroySession, getSession } from "@/lib/session";
 
 export type LoginState = { error?: string; cpf?: string };
 
@@ -49,6 +50,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     await createSession({ role: "master", masterId: master.id, nome: master.nome, apelido, codfunc: 0, codvend: 0, codemp: 0 });
     console.info(`[login] ok ${master.nome} — master`);
     keys.forEach(clearFailures);
+    (await cookies()).set(CLEAR_ADMIN_HINT);
     redirect("/dashboard");
   }
 
@@ -67,12 +69,16 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   }
 
   keys.forEach(clearFailures);
+  // Entrou com CPF: este aparelho deixa de voltar para o login de admin
+  (await cookies()).set(CLEAR_ADMIN_HINT);
   redirect("/dashboard");
 }
 
 export async function logout() {
+  const session = await getSession();
   await destroySession();
-  redirect("/login");
+  // O admin volta para o login de admin
+  redirect(session?.role === "admin" ? "/admin" : "/login");
 }
 
 export type BusinessCard =

@@ -83,6 +83,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
             )}
           </Link>
         ))}
+        {/* Metas e feriados têm telas próprias (as mesmas que a diretoria usa) */}
+        <Link href="/metas" className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt">
+          Metas ↗
+        </Link>
       </nav>
       {content}
     </Shell>

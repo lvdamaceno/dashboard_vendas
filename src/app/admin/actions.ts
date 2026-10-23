@@ -8,7 +8,8 @@ import { env } from "@/lib/env";
 import { addMaster, deleteNotice, getMaster, removeMaster, setFeedbackDone } from "@/lib/painel";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { personView } from "@/lib/sales";
-import { createSession, getSession, type Session, type ViewAs } from "@/lib/session";
+import { cookies } from "next/headers";
+import { ADMIN_HINT, createSession, getSession, type Session, type ViewAs } from "@/lib/session";
 
 export type AdminState = { error?: string; ok?: boolean };
 
@@ -40,6 +41,7 @@ export async function adminLogin(_prev: AdminState, form: FormData): Promise<Adm
   clearFailures(key);
   // Substitui a sessão que estiver aberta no aparelho (ex.: de um gerente)
   await createSession({ role: "admin", nome: "Administrador", apelido: "Admin", codfunc: 0, codvend: 0, codemp: 0 });
+  (await cookies()).set(ADMIN_HINT);
   console.info(`[admin] login ok (ip ${ip})`);
   redirect("/admin");
 }

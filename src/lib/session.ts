@@ -49,6 +49,14 @@ export const SESSION_COOKIE = isProd ? "__Host-dv_session" : "dv_session";
  * Opções para apagar o cookie de sessão. O prefixo __Host- exige Secure e Path=/ também
  * na exclusão; sem isso o navegador ignora e a pessoa continua logada depois de sair.
  */
+/**
+ * Lembra que o último acesso neste aparelho foi de admin (não guarda nada sensível): ao sair ou quando a
+ * sessão expira, a volta é para o login de admin, e não para o de CPF. Entrar com CPF apaga.
+ */
+export const ADMIN_HINT_COOKIE = isProd ? "__Host-dv_admin" : "dv_admin";
+export const ADMIN_HINT = { name: ADMIN_HINT_COOKIE, value: "1", httpOnly: true, secure: isProd, sameSite: "lax", path: "/", maxAge: 30 * 86_400 } as const;
+export const CLEAR_ADMIN_HINT = { ...ADMIN_HINT, value: "", maxAge: 0 } as const;
+
 export const CLEAR_SESSION_COOKIE = { name: SESSION_COOKIE, value: "", httpOnly: true, secure: isProd, sameSite: "lax", path: "/", maxAge: 0 } as const;
 
 let keyPromise: Promise<Uint8Array> | undefined;
