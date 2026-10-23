@@ -57,3 +57,13 @@ CREATE TABLE IF NOT EXISTS painel.cliente_dispensado (
   codvend       integer,
   dispensado_em timestamptz NOT NULL DEFAULT now()
 );
+
+-- Telefone do cartão de visita atualizado pelo app (vendedor, gerente da loja ou admin).
+-- Sem registro aqui, vale o TFPFUN.TELEFONE do Sankhya.
+CREATE TABLE IF NOT EXISTS painel.telefone (
+  codvend       integer PRIMARY KEY,
+  telefone      text NOT NULL CHECK (telefone ~ '^[0-9]{10,11}$'),
+  autor_nome    text NOT NULL,
+  autor_papel   text NOT NULL,
+  atualizado_em timestamptz NOT NULL DEFAULT now()
+);

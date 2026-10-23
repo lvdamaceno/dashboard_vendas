@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { addMaster, deleteNotice, removeMaster, setFeedbackDone } from "@/lib/painel";
+import { addMaster, deleteNotice, getMaster, removeMaster, setFeedbackDone } from "@/lib/painel";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { personView } from "@/lib/sales";
-import { createSession, getSession, type Session } from "@/lib/session";
+import { createSession, getSession, type Session, type ViewAs } from "@/lib/session";
 
 export type AdminState = { error?: string; ok?: boolean };
 
@@ -101,16 +101,25 @@ export async function deleteMaster(form: FormData) {
   refresh();
 }
 
-/** Admin passa a ver o painel de um vendedor ou gerente (escolhido pelo nome). */
+/** Visão de um master: todas as lojas, como a diretoria vê. */
+async function masterView(masterId: number): Promise<ViewAs | null> {
+  const master = await getMaster(masterId);
+  if (!master) return null;
+  const apelido = master.nome.trim().split(/\s+/)[0];
+  return { role: "master", masterId: master.id, nome: master.nome, apelido, codfunc: 0, codvend: 0, codemp: 0 };
+}
+
+/** Admin passa a ver o painel de um vendedor, gerente ou master (escolhido pelo nome). */
 export async function viewAs(form: FormData) {
   const session = await requireAdmin();
-  const parsed = id.safeParse(form.get("codvend"));
+  const parsed = id.safeParse(form.get("codigo"));
   if (!parsed.success) return;
-  const como = await personView(parsed.data);
+  // Sempre relido da fonte (Sankhya ou banco do painel), nunca dos dados do formulário
+  const como = form.get("tipo") === "master" ? await masterView(parsed.data) : await personView(parsed.data);
   if (!como) return;
   const { como: _, ...admin } = session;
   await createSession({ ...admin, como });
-  console.info(`[admin] vendo o painel de ${como.apelido} (${como.role}, vendedor ${como.codvend})`);
+  console.info(`[admin] vendo o painel de ${como.apelido} (${como.role})`);
   redirect("/dashboard");
 }
 

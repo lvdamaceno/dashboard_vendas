@@ -10,11 +10,13 @@ import { money, number, percent } from "@/lib/format";
 import { getInsights, SUMIDO_COMPRAS, SUMIDO_DIAS, type Insights, type VendorStats } from "@/lib/insights";
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
 import { masterExists, listNotices, type Notice } from "@/lib/painel";
-import { getDashboardData, getPeople, getStores, getTeam, type DashboardData, type Person } from "@/lib/sales";
+import { listPeopleForAdmin } from "@/lib/people";
+import { getDashboardData, getStores, getTeam, type DashboardData, type Person } from "@/lib/sales";
 import { SankhyaError } from "@/lib/sankhya/client";
 import { getSession, isManagerial, seesAllStores, viewSession, type Session } from "@/lib/session";
 import { OfflineBanner } from "@/components/offline-banner";
 import { PersonPicker } from "@/components/person-picker";
+import { TeamPhones } from "@/components/phone-editor";
 import { roleLabel, Shell } from "@/components/shell";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -56,7 +58,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       return null;
     }),
     isManagerial(session) ? optional("lojas", getStores) : [],
-    session.role === "admin" && !session.como ? optional("pessoas", getPeople) : ([] as Person[]),
+    session.role === "admin" && !session.como ? listPeopleForAdmin() : ([] as Person[]),
   ]);
   const shell = { session, notices, stores, scope: allStores ? roleLabel(view, stores.find((s) => s.codigo === loja)?.nome) : undefined };
 
@@ -111,7 +113,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     <Shell {...shell}>
       {people.length > 0 && (
         <details className="group rounded-3xl border border-line bg-surface p-5">
-          <summary className="cursor-pointer font-title font-medium">Ver o painel de um vendedor ou gerente</summary>
+          <summary className="cursor-pointer font-title font-medium">Ver o painel de um master, gerente ou vendedor</summary>
           <div className="mt-3">
             <PersonPicker people={people} stores={stores} />
           </div>
@@ -263,6 +265,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       )}
 
       {isManager && !vendedor && insights.vendedores && <VendorTable vendedores={insights.vendedores.atual} />}
+
+      {/* Só o gerente de verdade (o admin edita todos na área de admin) */}
+      {session.role === "gerente" && <TeamPhones />}
 
       <div className="grid gap-3 md:grid-cols-2">
         <RankList

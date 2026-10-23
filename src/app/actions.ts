@@ -5,7 +5,8 @@ import QRCode from "qrcode";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
 import { fetchContact } from "@/lib/sankhya/contact";
-import { findMaster } from "@/lib/painel";
+import { findMaster, getPhoneOverrides } from "@/lib/painel";
+import { formatPhone } from "@/lib/phone";
 import { createSession, destroySession, getSession } from "@/lib/session";
 
 export type LoginState = { error?: string; cpf?: string };
@@ -75,7 +76,7 @@ export async function logout() {
 }
 
 export type BusinessCard =
-  | { ok: true; nome: string; cargo: string; telefone: string | null; whatsapp: string | null; qrSvg: string | null }
+  | { ok: true; codvend: number; nome: string; cargo: string; telefone: string | null; doApp: boolean; whatsapp: string | null; qrSvg: string | null }
   | { ok: false; error: string };
 
 // Primeiro e último nome, para caber no cartão
@@ -84,9 +85,6 @@ const shortName = (nome: string) => {
   return parts.length > 2 ? `${parts[0]} ${parts[parts.length - 1]}` : parts.join(" ");
 };
 
-const formatPhone = (tel: string) =>
-  tel.length === 11 ? `(${tel.slice(0, 2)}) ${tel.slice(2, 7)}-${tel.slice(7)}` : `(${tel.slice(0, 2)}) ${tel.slice(2, 6)}-${tel.slice(6)}`;
-
 /** Dados do cartão de visita do usuário logado; o QR code abre o WhatsApp dele. */
 export async function getBusinessCard(): Promise<BusinessCard> {
   const session = await getSession();
@@ -94,13 +92,23 @@ export async function getBusinessCard(): Promise<BusinessCard> {
   if (session.role === "master" || session.role === "admin") return { ok: false, error: "Cartão disponível só para vendedores e gerentes." };
 
   try {
-    const contact = await fetchContact(session.codemp, session.codfunc);
-    const whatsapp = contact.telefone ? `https://wa.me/55${contact.telefone}` : null;
+    // Telefone atualizado pelo app tem prioridade; sem ele, vale o do Sankhya
+    const [contact, overrides] = await Promise.all([
+      fetchContact(session.codemp, session.codfunc),
+      getPhoneOverrides([session.codvend]).catch((err) => {
+        console.error("[cartao] telefones do app:", err instanceof Error ? err.message : err);
+        return new Map();
+      }),
+    ]);
+    const telefone: string | null = overrides.get(session.codvend)?.telefone ?? contact.telefone;
+    const whatsapp = telefone ? `https://wa.me/55${telefone}` : null;
     return {
       ok: true,
+      codvend: session.codvend,
       nome: shortName(contact.nome ?? session.apelido),
       cargo: session.role === "gerente" ? "Gerente" : "Vendedor",
-      telefone: contact.telefone ? formatPhone(contact.telefone) : null,
+      telefone: telefone ? formatPhone(telefone) : null,
+      doApp: overrides.has(session.codvend),
       whatsapp,
       qrSvg: whatsapp
         ? await QRCode.toString(whatsapp, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#b0141b", light: "#ffffff" } })

@@ -20,8 +20,8 @@ const baseSchema = z.object({
 });
 
 const sessionSchema = baseSchema.extend({
-  /** Admin vendo o painel de um vendedor ou gerente */
-  como: baseSchema.extend({ role: z.enum(["vendedor", "gerente"]) }).optional(),
+  /** Admin vendo o painel de um vendedor, gerente ou master */
+  como: baseSchema.extend({ role: z.enum(["vendedor", "gerente", "master"]) }).optional(),
 });
 
 export type Session = z.infer<typeof sessionSchema>;

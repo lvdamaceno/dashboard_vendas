@@ -61,10 +61,10 @@ Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAu
 | Vendedor | apenas `TGFCAB.CODVEND = seu código`. Parâmetros na URL são ignorados. |
 | Gerente | as vendas da sua loja: `TGFCAB.CODEMP` = empresa do gerente em `TGFVEN`. O filtro lista só os vendedores da mesma loja (`TGFVEN.CODEMP`) com venda ou devolução no período. |
 | Master (diretoria) | todas as lojas, com ranking de lojas; pode escolher uma loja (`?loja=`) e um vendedor dela. CPFs cadastrados pelo admin. |
-| Admin | tudo o que o master vê, a área `/admin` e o painel de qualquer vendedor ou gerente, escolhido pelo nome. |
+| Admin | tudo o que o master vê, a área `/admin` e o painel de qualquer master, gerente ou vendedor, escolhido pelo nome (com filtro por tipo de acesso). |
 
 Os parâmetros `loja` e `vendedor` da URL só valem para quem tem esse acesso; o vendedor continua preso ao próprio `CODVEND`.
-Quando o admin escolhe uma pessoa, a sessão guarda essa pessoa (relida do `TGFVEN` pelo código) e o painel usa exatamente as
+Quando o admin escolhe uma pessoa, a sessão guarda essa pessoa (relida do `TGFVEN` pelo código, ou de `painel.usuario_master` no caso do master) e o painel usa exatamente as
 regras dela; uma faixa amarela mostra de quem é o painel e o botão **Voltar ao admin**.
 
 O filtro de vendedor do gerente só **restringe** (é somado com `AND`), nunca amplia.
@@ -106,8 +106,12 @@ O botão **Cartão**, ao lado dos filtros, abre o cartão de visita do usuário 
 nome (primeiro e último, de `TFPFUN.NOMEFUNC`), cargo e celular; tocando, ele vira e mostra um
 QR code que abre o WhatsApp do vendedor (`https://wa.me/55<DDD><número>`).
 
-O telefone vem de `TFPFUN.TELEFONE` (o funcionário que entrou, por `CODEMP` + `CODFUNC`) e
-precisa ter DDD. Sem telefone válido, o cartão avisa e o log registra o usuário.
+O telefone vem de `painel.telefone` (salvo pelo app) ou, sem ele, de `TFPFUN.TELEFONE` (o funcionário
+que entrou, por `CODEMP` + `CODFUNC`), e precisa ter DDD. Sem telefone válido, o cartão avisa e o log registra o usuário.
+
+**Atualizar telefone** (botão embaixo do cartão) salva o novo número no app, pelo código do vendedor, e o QR code passa
+a usá-lo; **Usar o do Sankhya** apaga o salvo. O gerente edita os da equipe da loja (`TGFVEN.CODEMP`) em
+**Telefones da equipe**, no painel; o admin edita os de todos na aba **Telefones**. Master não tem cartão.
 
 ## Vendas e devoluções
 
@@ -154,6 +158,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `aviso` | Avisos do sino; `codemp` nulo = todas as lojas |
 | `aviso_visto` | Última vez que cada usuário abriu o sino (marca os novos) |
 | `feedback` | Sugestões e erros, com status concluído |
+| `telefone` | Telefone do cartão salvo pelo app, por `CODVEND`; tem prioridade sobre o do Sankhya |
 | `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |
 
 - **Sino** (canto superior esquerdo): bolinha amarela quando há aviso novo. Vendedor e gerente veem os avisos de todas as
@@ -163,7 +168,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 - **Admin** (`/admin`: sem sessão de admin, o próprio endereço mostra o login com usuário e senha em `ADMIN_USER`/`ADMIN_PASSWORD`; sem os dois o acesso fica desligado):
   sugestões e erros (concluir/reabrir e **Criar issue no GitHub**, que abre o formulário de issue já preenchido em
   `GITHUB_REPO` — o repositório é público, então vai só a mensagem, sem o nome de quem enviou), avisos (enviar e apagar),
-  usuários master e **Ver painéis** (busca por nome).
+  usuários master, **Telefones** e **Ver painéis** (busca por nome, com filtro Master / Gerente / Vendedor).
 
 ## Segurança
 

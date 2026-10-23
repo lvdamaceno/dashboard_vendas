@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PersonPicker } from "@/components/person-picker";
+import { PhoneList } from "@/components/phone-editor";
+import { listEditablePhones } from "../painel-actions";
 import { Shell } from "@/components/shell";
 import { env } from "@/lib/env";
 import { countPendingFeedback, listFeedback, listMasters, listNotices, type Feedback } from "@/lib/painel";
-import { getPeople, getStores } from "@/lib/sales";
+import { listPeopleForAdmin } from "@/lib/people";
+import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
 import { deleteMaster, removeNotice, toggleFeedback } from "./actions";
 import { ConfirmButton, MasterForm, NoticeForm } from "./forms";
@@ -16,6 +19,7 @@ const TABS = [
   { value: "avisos", label: "Avisos" },
   { value: "masters", label: "Usuários master" },
   { value: "paineis", label: "Ver painéis" },
+  { value: "telefones", label: "Telefones" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
@@ -156,11 +160,25 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
       );
     }
 
-    if (tab === "paineis") {
-      const people = await getPeople();
+    if (tab === "telefones") {
+      const people = await listEditablePhones();
+      if ("error" in people) throw new Error(people.error);
       return (
         <section className={card}>
-          <h2 className="mb-1 text-base">Ver o painel de um vendedor ou gerente</h2>
+          <h2 className="mb-1 text-base">Telefones do cartão de visita</h2>
+          <p className="mb-3 text-sm text-ink-2">
+            O telefone salvo aqui vale no cartão e no QR code do WhatsApp. Sem telefone salvo no app, vale o do Sankhya.
+          </p>
+          <PhoneList people={people} stores={stores} />
+        </section>
+      );
+    }
+
+    if (tab === "paineis") {
+      const people = await listPeopleForAdmin();
+      return (
+        <section className={card}>
+          <h2 className="mb-1 text-base">Ver o painel de um master, gerente ou vendedor</h2>
           <p className="mb-3 text-sm text-ink-2">
             Escolha pelo nome para ver o painel exatamente como a pessoa vê. Para ver todas as lojas, abra o{" "}
             <Link href="/dashboard" className="text-accent underline-offset-4 hover:underline">

@@ -555,8 +555,9 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     <>
       <Tip>Aumente o brilho da tela antes de mostrar o QR code: a câmera do cliente lê mais rápido.</Tip>
       <Tip kind="atencao">
-        Se aparecer “Telefone não cadastrado”, o seu celular não está no cadastro de funcionário do sistema. Peça para o seu gerente
-        atualizar.
+        Se aparecer “Telefone não cadastrado” ou o número estiver errado, toque em <strong>Atualizar telefone</strong>, embaixo do
+        cartão, digite o celular com DDD e toque em <strong>Salvar</strong>. O QR code passa a usar o número novo. O gerente também
+        pode atualizar o telefone da equipe em <strong>Telefones da equipe</strong>, no painel.
       </Tip>
     </>,
   ],

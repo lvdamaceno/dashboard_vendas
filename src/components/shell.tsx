@@ -73,7 +73,7 @@ export function Shell({ session, notices, stores = [], scope, feedback = true, c
         <div className="bg-smile text-[#3c3c3a]">
           <form action={stopViewAs} className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
             <p className="min-w-0 flex-1">
-              Você está vendo o painel de <strong>{como.apelido}</strong> ({roleLabel(como, nomeLoja(como.codemp))}).
+              Você está vendo o painel de <strong>{como.apelido}</strong> ({como.role === "master" ? "Diretoria" : roleLabel(como, nomeLoja(como.codemp))}).
             </p>
             <button type="submit" className="h-9 shrink-0 rounded-full bg-white/70 px-4 font-title font-medium hover:bg-white">
               Voltar ao admin

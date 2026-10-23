@@ -1,5 +1,6 @@
 import "server-only";
 import { env } from "./env";
+import { normalizePhone } from "./phone";
 import type { Period } from "./period";
 import { isManagerial, type Session } from "./session";
 import { query } from "./sankhya/client";
@@ -219,9 +220,11 @@ export async function getStores() {
 }
 
 export interface Person {
-  codvend: number;
+  /** CODVEND (vendedor/gerente) ou painel.usuario_master.id (master) */
+  codigo: number;
   nome: string;
-  role: "vendedor" | "gerente";
+  role: "vendedor" | "gerente" | "master";
+  /** 0 para master (todas as lojas) */
   codemp: number;
 }
 
@@ -236,7 +239,7 @@ export async function getPeople(): Promise<Person[]> {
       ORDER BY VEN.APELIDO`,
   );
   return rows.map((r) => ({
-    codvend: n(r.CODVEND),
+    codigo: n(r.CODVEND),
     nome: s(r.APELIDO),
     role: r.TIPVEND === "S" || r.TIPVEND === "G" ? "gerente" : "vendedor",
     codemp: n(r.CODEMP),
@@ -267,4 +270,53 @@ export async function clientInScope(session: Session, codparc: number) {
   const where = [`CAB.CODPARC = ${int(codparc)}`, isVenda(), ...scopeWhere(session)];
   const rows = await query(limit(`SELECT CAB.NUNOTA FROM TGFCAB CAB WHERE ${where.join(" AND ")} ORDER BY CAB.NUNOTA`, 1));
   return rows.length > 0;
+}
+
+export interface TeamPhone {
+  codvend: number;
+  nome: string;
+  role: "vendedor" | "gerente";
+  codemp: number;
+  /** TFPFUN.TELEFONE do funcionário ligado ao vendedor (TSIUSU), já normalizado */
+  sankhya: string | null;
+}
+
+/**
+ * Vendedores e gerentes ativos com o telefone do Sankhya, para editar telefones:
+ * com codemp, só os da loja (TGFVEN.CODEMP); sem, todos (admin).
+ */
+export async function getTeamPhones(codemp?: number): Promise<TeamPhone[]> {
+  const rows = await query(
+    `SELECT VEN.CODVEND, VEN.APELIDO, VEN.CODEMP, VEN.TIPVEND, FUN.TELEFONE
+       FROM TGFVEN VEN
+       LEFT JOIN TSIUSU USU ON USU.CODVEND = VEN.CODVEND
+       LEFT JOIN TFPFUN FUN ON FUN.CODEMP = USU.CODEMP AND FUN.CODFUNC = USU.CODFUNC
+      WHERE VEN.ATIVO = 'S' AND VEN.CODVEND > 0${codemp ? ` AND VEN.CODEMP = ${int(codemp)}` : ""}
+      ORDER BY VEN.APELIDO`,
+  );
+  // Um vendedor pode estar ligado a mais de um usuário: fica o primeiro telefone válido
+  const byCode = new Map<number, TeamPhone>();
+  for (const r of rows) {
+    const codvend = n(r.CODVEND);
+    const tel = normalizePhone(r.TELEFONE);
+    const current = byCode.get(codvend);
+    if (current) {
+      current.sankhya ??= tel;
+      continue;
+    }
+    byCode.set(codvend, {
+      codvend,
+      nome: s(r.APELIDO),
+      role: r.TIPVEND === "S" || r.TIPVEND === "G" ? "gerente" : "vendedor",
+      codemp: n(r.CODEMP),
+      sankhya: tel,
+    });
+  }
+  return [...byCode.values()];
+}
+
+/** Loja (TGFVEN.CODEMP) de um vendedor ativo, ou null. */
+export async function vendorStore(codvend: number) {
+  const [r] = await query(`SELECT VEN.CODEMP FROM TGFVEN VEN WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`);
+  return r ? n(r.CODEMP) : null;
 }

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { getBusinessCard, type BusinessCard as CardData } from "@/app/actions";
+import { PhoneForm } from "./phone-editor";
 import { Logo, Smile } from "./logo";
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -16,10 +17,12 @@ export function BusinessCard() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [card, setCard] = useState<CardData>();
   const [flipped, setFlipped] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [loading, startLoading] = useTransition();
 
   function open() {
     setFlipped(false);
+    setEditing(false);
     dialog.current?.showModal();
     if (!card?.ok) startLoading(async () => setCard(await getBusinessCard()));
   }
@@ -71,7 +74,7 @@ export function BusinessCard() {
                     {card.telefone}
                   </p>
                 ) : (
-                  <p className="text-sm">Telefone não cadastrado no Sankhya</p>
+                  <p className="text-sm">Telefone não cadastrado</p>
                 )}
                 <p className="absolute bottom-5 text-xs">Toque para virar</p>
               </div>
@@ -93,20 +96,46 @@ export function BusinessCard() {
                     <Smile className="h-5 w-auto" />
                   </>
                 ) : (
-                  <p className="text-sm">Cadastre o celular no funcionário para gerar o QR code do WhatsApp.</p>
+                  <p className="text-sm">Toque em “Atualizar telefone”, embaixo, para gerar o QR code do WhatsApp.</p>
                 )}
                 <p className="absolute bottom-5 text-xs text-white/80">Toque para virar</p>
               </div>
             </div>
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => dialog.current?.close()}
-          className="mx-auto mt-4 block h-11 rounded-full bg-white/15 px-6 font-title text-sm font-medium text-white hover:bg-white/25 active:bg-white/25"
-        >
-          Fechar
-        </button>
+        {card?.ok && editing && (
+          <div className="mt-4 rounded-3xl bg-surface p-4">
+            <PhoneForm
+              codvend={card.codvend}
+              current={card.telefone}
+              fromApp={card.doApp}
+              onDone={() => {
+                setEditing(false);
+                // Recarrega o cartão para o QR code usar o telefone novo
+                startLoading(async () => setCard(await getBusinessCard()));
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          </div>
+        )}
+        <div className="mt-4 flex justify-center gap-2">
+          {card?.ok && !editing && !loading && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="h-11 rounded-full bg-white/15 px-5 font-title text-sm font-medium text-white hover:bg-white/25 active:bg-white/25"
+            >
+              Atualizar telefone
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => dialog.current?.close()}
+            className="h-11 rounded-full bg-white/15 px-6 font-title text-sm font-medium text-white hover:bg-white/25 active:bg-white/25"
+          >
+            Fechar
+          </button>
+        </div>
       </dialog>
     </>
   );

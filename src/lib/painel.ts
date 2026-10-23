@@ -16,6 +16,11 @@ export async function findMaster(cpf: string): Promise<{ id: number; nome: strin
   return rows[0] ?? null;
 }
 
+export async function getMaster(id: number): Promise<{ id: number; nome: string } | null> {
+  const rows = await sql<{ id: number; nome: string }>(`SELECT id, nome FROM painel.usuario_master WHERE id = $1`, [id]);
+  return rows[0] ?? null;
+}
+
 export async function masterExists(id: number) {
   const rows = await sql(`SELECT 1 FROM painel.usuario_master WHERE id = $1`, [id]);
   return rows.length > 0;
@@ -143,4 +148,34 @@ export async function dismissClient(d: { codparc: number; autorNome: string; aut
        codemp = EXCLUDED.codemp, codvend = EXCLUDED.codvend, dispensado_em = now()`,
     [d.codparc, d.autorNome, d.autorPapel, d.codemp, d.codvend],
   );
+}
+
+export interface PhoneOverride {
+  codvend: number;
+  telefone: string;
+  autorNome: string;
+  atualizadoEm: Date;
+}
+
+/** Telefones salvos pelo app (têm prioridade sobre o do Sankhya), por código de vendedor. */
+export async function getPhoneOverrides(codvends?: number[]) {
+  const rows = await sql<PhoneOverride>(
+    `SELECT codvend, telefone, autor_nome AS "autorNome", atualizado_em AS "atualizadoEm" FROM painel.telefone
+      ${codvends ? "WHERE codvend = ANY($1::int[])" : ""}`,
+    codvends ? [codvends] : [],
+  );
+  return new Map(rows.map((r) => [r.codvend, r]));
+}
+
+export async function savePhoneOverride(codvend: number, telefone: string, autorNome: string, autorPapel: string) {
+  await sql(
+    `INSERT INTO painel.telefone (codvend, telefone, autor_nome, autor_papel) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (codvend) DO UPDATE SET telefone = EXCLUDED.telefone, autor_nome = EXCLUDED.autor_nome,
+       autor_papel = EXCLUDED.autor_papel, atualizado_em = now()`,
+    [codvend, telefone, autorNome, autorPapel],
+  );
+}
+
+export async function clearPhoneOverride(codvend: number) {
+  await sql(`DELETE FROM painel.telefone WHERE codvend = $1`, [codvend]);
 }
