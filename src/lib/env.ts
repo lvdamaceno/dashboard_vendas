@@ -31,6 +31,8 @@ const schema = z.object({
     .string()
     .regex(/^CUS[A-Z]{2,10}$/, "nome de coluna de TGFCUS, ex.: CUSGER")
     .default("CUSGER"),
+  // Empresas que não vendem e ficam fora da tela de metas (CODEMP); padrão Dr. Freitas, Ananindeua e Ultralog
+  META_LOJAS_FORA: list(/^\d{1,9}$/).transform((v) => (v.length ? v : ["2", "7", "100"]).map(Number)),
   // Dias da semana com expediente nas metas diárias (0 = domingo … 6 = sábado); padrão segunda a sábado
   META_DIAS_SEMANA: list(/^[0-6]$/).transform((v) => (v.length ? v : ["1", "2", "3", "4", "5", "6"]).map(Number)),
   // Área de admin (/admin/login); sem os dois, o acesso de admin fica desligado.

@@ -160,7 +160,8 @@ log com o prefixo `[indicadores]`.
 
 ## Metas (`/metas`) e feriados (`/feriados`)
 
-Master e admin informam, numa tela só com todas as lojas do mês, **dois valores por loja**: a **meta da loja** e a
+Master e admin informam, numa tela só com as lojas que vendem (as de `META_LOJAS_FORA` ficam de fora; padrão 2, 7 e 100 —
+Dr. Freitas, Ananindeua e Ultralog), **dois valores por loja**: a **meta da loja** e a
 **meta por vendedor** (a mesma para cada pessoa considerada). Em cada loja marcam as **pessoas consideradas**: as
 candidatas são quem vendeu ali nos últimos 90 dias (o cadastro de vendedores do Sankhya tem caixas e códigos internos, e
 há quem venda em mais de uma loja); cada pessoa conta em uma loja só. A meta individual de uma pessoa é medida pelas vendas

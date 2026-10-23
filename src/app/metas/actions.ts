@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { copyGoals, listGoalPeople, META_LOJA, META_VENDEDOR, saveGoalPeople, saveGoals, type GoalPerson } from "@/lib/metas";
 import { parseMoney } from "@/lib/money-input";
 import { getStores, salesPeopleByStore } from "@/lib/sales";
+import { env } from "@/lib/env";
 import { getSession } from "@/lib/session";
 
 export type GoalsState = { ok?: boolean; error?: string };
@@ -28,7 +29,8 @@ export async function saveGoalsAction(_prev: GoalsState, form: FormData): Promis
 
   try {
     // Só aceita as lojas que existem (TSIEMP com vendedor ativo)
-    const [stores, candidatos, atuais] = await Promise.all([getStores(), salesPeopleByStore(), listGoalPeople(`${mesTxt}-01`)]);
+    const [todas, candidatos, atuais] = await Promise.all([getStores(), salesPeopleByStore(), listGoalPeople(`${mesTxt}-01`)]);
+    const stores = todas.filter((s) => !env().META_LOJAS_FORA.includes(s.codigo));
     // Nome de cada código possível (quem vendeu recentemente ou já estava na lista)
     const nomes = new Map<number, string>([...atuais.map((p) => [p.codvend, p.nome] as const), ...candidatos.map((c) => [c.codvend, c.nome] as const)]);
     const pessoas: GoalPerson[] = [];
