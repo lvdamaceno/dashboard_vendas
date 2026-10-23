@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { SMILE, SMILE_BOX } from "@/components/logo";
 import type { QueueView } from "@/lib/fila-access";
 import type { Session } from "@/lib/session";
 import { enterQueue, exitQueue, finishCustomer, removeFromQueue, removePhoto, reorder, serveCustomer, uploadPhoto, type QueueResult } from "./actions";
@@ -24,18 +25,32 @@ interface Props {
 const button = "h-12 rounded-full px-6 font-title text-base font-medium transition disabled:opacity-60";
 const small = "flex size-9 shrink-0 items-center justify-center rounded-full border border-line text-ink-2 hover:bg-bg-alt disabled:opacity-40";
 
-function initials(nome: string) {
-  const parts = nome.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "")).toUpperCase();
+/** Sem foto: uma pessoa nas cores da marca, com o sorriso do logotipo no rosto. */
+function SmilingPerson({ className }: { className: string }) {
+  const clip = useId();
+  return (
+    <svg viewBox="0 0 48 48" className={`${className} shrink-0`} aria-hidden>
+      <clipPath id={clip}>
+        <circle cx="24" cy="24" r="24" />
+      </clipPath>
+      <g clipPath={`url(#${clip})`}>
+        <rect width="48" height="48" fill="var(--accent-soft)" />
+        <path d="M6 50c0-10.5 8-17 18-17s18 6.5 18 17Z" fill="var(--accent)" />
+        <circle cx="24" cy="18.5" r="10" fill="var(--accent)" />
+        {/* o mesmo sorriso amarelo do logotipo */}
+        <svg x="15.6" y="19.2" width="16.8" height="5.2" viewBox={SMILE_BOX}>
+          <path d={SMILE} fill="var(--smile)" />
+        </svg>
+      </g>
+    </svg>
+  );
 }
 
 export function Avatar({ codvend, nome, versao, size = "size-12" }: { codvend: number; nome: string; versao: number | null; size?: string }) {
   return versao ? (
     <img src={`/api/foto/${codvend}?v=${versao}`} alt="" className={`${size} shrink-0 rounded-full object-cover`} />
   ) : (
-    <span className={`${size} flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-title font-semibold text-accent`} aria-hidden>
-      {initials(nome)}
-    </span>
+    <SmilingPerson className={size} />
   );
 }
 
