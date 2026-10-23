@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { number, percent } from "@/lib/format";
 import { conversao, type ServiceRow, type ServiceStats } from "@/lib/atendimentos";
 
@@ -48,7 +49,21 @@ export function ServiceStatsSection({
   lojas?: { codigo: number; nome: string }[];
 }) {
   const tot = somar(stats.linhas);
-  if (!tot.total) return null;
+  // Sem atendimentos no período: o quadro aparece vazio, explicando de onde vêm os números
+  if (!tot.total)
+    return (
+      <section className="rounded-3xl border border-dashed border-line bg-surface p-5">
+        <h2 className="text-base">Atendimentos da fila</h2>
+        <p className="mt-1 text-sm text-ink-2">
+          {agrupar === "nenhum"
+            ? "Você ainda não registrou atendimentos neste período. Na Fila, toque em Atender cliente quando começar e, ao terminar, em Terminei o atendimento, dizendo se vendeu."
+            : "Ainda não há atendimentos registrados pela fila neste período. Eles aparecem quando os vendedores usam Atender cliente e Terminei o atendimento na Fila."}
+        </p>
+        <Link href="/fila" className="mt-3 inline-flex h-10 items-center rounded-full border border-line px-4 font-title text-sm font-medium text-accent hover:bg-bg-alt">
+          Abrir a fila
+        </Link>
+      </section>
+    );
   const conv = conversao(tot);
 
   // Por loja: soma as pessoas de cada loja

@@ -41,6 +41,22 @@ test("vendedora entra na fila, atende, registra o resultado e o gerente vê a co
   await expect(secao.getByRole("cell", { name: "ANA PAULA" })).toBeVisible();
 });
 
+test("sem atendimentos no período, o quadro aparece vazio explicando como registrar", async ({ browser }) => {
+  for (const [sessao, texto] of [
+    [MARCOS, "Ainda não há atendimentos registrados pela fila"],
+    [ANA, "Você ainda não registrou atendimentos"],
+  ] as const) {
+    const ctx = await browser.newContext();
+    await loginAs(ctx, sessao);
+    const page = await ctx.newPage();
+    await page.goto("/dashboard?periodo=hoje");
+    const secao = page.locator("section", { has: page.getByRole("heading", { name: "Atendimentos da fila" }) });
+    await expect(secao.getByText(texto)).toBeVisible();
+    await expect(secao.getByRole("link", { name: "Abrir a fila" })).toHaveAttribute("href", "/fila");
+    await ctx.close();
+  }
+});
+
 test("gerente só vê a fila da própria loja, sem seletor", async ({ browser }) => {
   await db(`INSERT INTO painel.fila (dia, codemp, codvend, nome, posicao) VALUES (${DIA_FILA}, 4, 340, 'IVAN', 1)`);
   const ctx = await browser.newContext();
