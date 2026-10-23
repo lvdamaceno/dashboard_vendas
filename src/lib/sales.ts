@@ -29,13 +29,20 @@ export const isDevolucao = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_D
 export const sign = () => `(CASE WHEN ${isDevolucao()} THEN -1 ELSE 1 END)`;
 export const countVendas = () => `SUM(CASE WHEN ${isVenda()} THEN 1 ELSE 0 END)`;
 
+/**
+ * Nota com série numérica maior que zero. SERIENOTA é texto e há séries como 'CF ' (cupom),
+ * que quebravam a comparação com número: aqui não há conversão — só dígitos (e espaços)
+ * com algum dígito diferente de zero.
+ */
+export const serieValida = (alias: string) =>
+  `(${alias}.SERIENOTA NOT LIKE '%[^0-9 ]%' AND ${alias}.SERIENOTA LIKE '%[1-9]%')`;
+
 export function salesWhere(session: Session, from: string, to: string, vendedor?: number) {
   const { SALES_TOPS_VENDA, SALES_TOPS_DEVOLUCAO } = env();
   const clauses = [
     `CAB.CODTIPOPER IN (${inList([...SALES_TOPS_VENDA, ...SALES_TOPS_DEVOLUCAO])})`,
     // Só notas com série (as notas fiscais emitidas)
-    `CAB.SERIENOTA IS NOT NULL`,
-    `CAB.SERIENOTA > 0`,
+    serieValida("CAB"),
     `CAB.DTNEG >= ${date(from)}`,
     `CAB.DTNEG < ${date(addOneDay(to))}`,
     ...scopeWhere(session, vendedor),
@@ -139,7 +146,7 @@ export async function getDashboardData(session: Session, period: Period, vendedo
       ? query(
           `SELECT VEN.CODVEND, VEN.APELIDO, ${countVendas()} AS PEDIDOS, SUM(CAB.VLRNOTA * ${sign()}) AS TOTAL
              FROM TGFCAB CAB
-             JOIN TGFVEN VEN ON VEN.CODVEND = CAB.CODVEND
+             JOIN TGFVEN VEN ON VEN.CODVEND = CAB.CODVEND AND VEN.ATIVO = 'S'
            ${where}
             GROUP BY VEN.CODVEND, VEN.APELIDO
             ORDER BY TOTAL DESC`,
@@ -200,7 +207,7 @@ export async function getTeam(session: Session, period: Period, vendedor?: numbe
   const selected = vendedor ? ` OR VEN.CODVEND = ${int(vendedor)}` : "";
   const rows = await query(
     `SELECT VEN.CODVEND, VEN.APELIDO FROM TGFVEN VEN
-      WHERE VEN.CODEMP = ${int(session.codemp)}
+      WHERE VEN.CODEMP = ${int(session.codemp)} AND VEN.ATIVO = 'S'
         AND (EXISTS (SELECT 1 FROM TGFCAB CAB
                      ${salesWhere(session, period.from, period.to)}
                        AND CAB.CODVEND = VEN.CODVEND)${selected})
@@ -215,6 +222,7 @@ export async function getStores() {
     `SELECT EMP.CODEMP, EMP.NOMEFANTASIA FROM TSIEMP EMP
       WHERE EXISTS (SELECT 1 FROM TGFVEN VEN WHERE VEN.CODEMP = EMP.CODEMP AND VEN.ATIVO = 'S')
       ORDER BY EMP.CODEMP`,
+    { ttlMs: 10 * 60_000 },
   );
   return rows.map((r) => ({ codigo: n(r.CODEMP), nome: s(r.NOMEFANTASIA) || `Loja ${n(r.CODEMP)}` }));
 }
@@ -237,6 +245,7 @@ export async function getPeople(): Promise<Person[]> {
     `SELECT VEN.CODVEND, VEN.APELIDO, VEN.CODEMP, VEN.TIPVEND FROM TGFVEN VEN
       WHERE VEN.ATIVO = 'S' AND VEN.CODVEND > 0
       ORDER BY VEN.APELIDO`,
+    { ttlMs: 5 * 60_000 },
   );
   return rows.map((r) => ({
     codigo: n(r.CODVEND),
@@ -252,6 +261,7 @@ export async function personView(codvend: number) {
     `SELECT VEN.CODVEND, VEN.APELIDO, VEN.CODEMP, VEN.TIPVEND, COALESCE(VEN.CODFUNC, 0) AS CODFUNC
        FROM TGFVEN VEN
       WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`,
+    { ttlMs: 0 },
   );
   if (!r) return null;
   const gerente = r.TIPVEND === "S" || r.TIPVEND === "G";
@@ -317,6 +327,6 @@ export async function getTeamPhones(codemp?: number): Promise<TeamPhone[]> {
 
 /** Loja (TGFVEN.CODEMP) de um vendedor ativo, ou null. */
 export async function vendorStore(codvend: number) {
-  const [r] = await query(`SELECT VEN.CODEMP FROM TGFVEN VEN WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`);
+  const [r] = await query(`SELECT VEN.CODEMP FROM TGFVEN VEN WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`, { ttlMs: 0 });
   return r ? n(r.CODEMP) : null;
 }

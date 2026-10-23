@@ -150,12 +150,7 @@ async function executeQuery(sql: string, accessToken: string): Promise<Row[]> {
   return rows.map((row) => Object.fromEntries(fields.map((f, i) => [f.name.toUpperCase(), row[i]])));
 }
 
-/**
- * Executa uma consulta pela API oficial com o usuário de integração (o único com
- * acesso ao DbExplorer). O SQL é sempre montado no servidor — o navegador nunca envia SQL —
- * e quem chama é responsável por aplicar o escopo do usuário (ver sales.ts).
- */
-export async function query(sql: string): Promise<Row[]> {
+async function run(sql: string): Promise<Row[]> {
   try {
     return await executeQuery(sql, await getToken());
   } catch (err) {
@@ -164,4 +159,39 @@ export async function query(sql: string): Promise<Row[]> {
     }
     throw err;
   }
+}
+
+// --- cache curto das consultas ---
+// Cada ida ao Sankhya leva de 0,2 s a 1 s. Guardar o resultado por pouco tempo deixa instantâneo
+// voltar a um período já visto, recarregar o app e abrir de novo. A chave é o SQL inteiro, que já
+// traz o escopo da pessoa (loja/vendedor): ninguém recebe o resultado de outro escopo.
+// Consultas iguais ao mesmo tempo viram uma só. Erros não ficam guardados.
+const DEFAULT_TTL_MS = 60_000;
+const MAX_ENTRIES = 500;
+const cache = new Map<string, { expiresAt: number; rows: Promise<Row[]> }>();
+
+/**
+ * Executa uma consulta pela API oficial com o usuário de integração (o único com
+ * acesso ao DbExplorer). O SQL é sempre montado no servidor — o navegador nunca envia SQL —
+ * e quem chama é responsável por aplicar o escopo do usuário (ver sales.ts).
+ * ttlMs: por quanto tempo reaproveitar o resultado (0 = sempre buscar de novo).
+ */
+export async function query(sql: string, { ttlMs = DEFAULT_TTL_MS }: { ttlMs?: number } = {}): Promise<Row[]> {
+  if (ttlMs <= 0) return run(sql);
+  const now = Date.now();
+  const hit = cache.get(sql);
+  if (hit && hit.expiresAt > now) return hit.rows;
+
+  const rows = run(sql);
+  cache.set(sql, { expiresAt: now + ttlMs, rows });
+  rows.catch(() => cache.delete(sql));
+  if (cache.size > MAX_ENTRIES) {
+    for (const [key, entry] of cache) if (entry.expiresAt <= now) cache.delete(key);
+    // Ainda cheio: descarta os mais antigos (o Map mantém a ordem de inserção)
+    for (const key of cache.keys()) {
+      if (cache.size <= MAX_ENTRIES) break;
+      cache.delete(key);
+    }
+  }
+  return rows;
 }

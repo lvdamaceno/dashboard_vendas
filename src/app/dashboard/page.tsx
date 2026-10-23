@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { Filters } from "@/components/filters";
 import { KpiCard } from "@/components/kpi-card";
 import { LostClients } from "@/components/lost-clients";
@@ -7,11 +8,11 @@ import { pedidosLabel, RankList } from "@/components/rank-list";
 import { SalesChart } from "@/components/sales-chart";
 import { VendorTable } from "@/components/vendor-table";
 import { money, number, percent } from "@/lib/format";
-import { getInsights, SUMIDO_COMPRAS, SUMIDO_DIAS, type Insights, type VendorStats } from "@/lib/insights";
+import { getInsights, SUMIDO_COMPRAS, SUMIDO_DIAS, type InsightPromises, type VendorStats } from "@/lib/insights";
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
 import { masterExists, listNotices, type Notice } from "@/lib/painel";
 import { listPeopleForAdmin } from "@/lib/people";
-import { getDashboardData, getStores, getTeam, type DashboardData, type Person } from "@/lib/sales";
+import { getDashboardData, getStores, getTeam, type Person, type Summary } from "@/lib/sales";
 import { SankhyaError } from "@/lib/sankhya/client";
 import { getSession, isManagerial, seesAllStores, viewSession, type Session } from "@/lib/session";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -52,22 +53,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   // Só quem vê a loja filtra por vendedor; a restrição de loja/equipe continua valendo no SQL
   const vendedor = isManager ? param("vendedor") : undefined;
 
-  const [notices, stores, people] = await Promise.all([
+  // Indicadores complementares: cada um chega por conta própria e aparece quando fica pronto
+  // (Suspense), sem segurar o resto da tela
+  const insights = getInsights(view, period, vendedor);
+
+  // Avisos, lojas e vendas ao mesmo tempo (nada espera o outro)
+  const [notices, stores, people, main] = await Promise.all([
     listNotices(session).catch((err): Notice[] | null => {
       console.error("[avisos] erro ao carregar:", err instanceof Error ? err.message : err);
       return null;
     }),
     isManagerial(session) ? optional("lojas", getStores) : [],
     session.role === "admin" && !session.como ? listPeopleForAdmin() : ([] as Person[]),
+    Promise.all([getDashboardData(view, period, vendedor), getTeam(view, period, vendedor)]).then(
+      ([data, team]) => ({ data, team }),
+      (err: unknown) => ({ err }),
+    ),
   ]);
   const shell = { session, notices, stores, scope: allStores ? roleLabel(view, stores.find((s) => s.codigo === loja)?.nome) : undefined };
 
-  let data: DashboardData;
-  let team: Awaited<ReturnType<typeof getTeam>>;
-  let insights: Insights;
-  try {
-    [data, team, insights] = await Promise.all([getDashboardData(view, period, vendedor), getTeam(view, period, vendedor), getInsights(view, period, vendedor)]);
-  } catch (err) {
+  if ("err" in main) {
+    const { err } = main;
     if (err instanceof SankhyaError && err.code === "SESSION_EXPIRED") redirect("/sessao-expirada");
     console.error("[dashboard]", err);
     return (
@@ -79,6 +85,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       </Shell>
     );
   }
+  const { data, team } = main;
 
   // Completa os dias sem venda para o gráfico não "pular" datas
   const byDay = new Map(data.diario.map((d) => [d.dia, d]));
@@ -102,11 +109,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const { atual, anterior } = data;
   const vendedorNome = vendedor ? team.find((t) => t.codigo === vendedor)?.nome : undefined;
 
-  // Indicadores complementares (cada um some sozinho se a consulta dele falhar)
-  const itens = insights.vendedores && { atual: totals(insights.vendedores.atual), anterior: totals(insights.vendedores.anterior) };
-  const devolucao = (x: typeof atual) => (x.total + x.devolucoes ? x.devolucoes / (x.total + x.devolucoes) : 0);
-  const margem = insights.margem;
-  const margemPct = (m: NonNullable<typeof margem>["atual"]) => (m.receita ? (m.receita - m.custo) / m.receita : 0);
   const showWeek = daysBetween(period.from, period.to) >= 7;
 
   return (
@@ -157,65 +159,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <KpiCard label="Clientes" value={number(atual.clientes)} current={atual.clientes} previous={anterior.clientes} prevLabel={period.prevLabel} />
       </div>
 
-      {/* Quantidade varia (cada indicador some se a consulta falhar): dividem a linha por igual, 2 por linha no celular */}
-      <div className="flex flex-wrap gap-3 *:min-w-0 *:flex-1 *:basis-[calc(50%-0.375rem)] lg:flex-nowrap lg:*:basis-0">
-        {itens && (
-          <>
-            <KpiCard
-              label="Peças por atendimento"
-              value={number(Math.round(itens.atual.pecasPorPedido * 10) / 10)}
-              current={itens.atual.pecasPorPedido}
-              previous={itens.anterior.pecasPorPedido}
-              prevLabel={period.prevLabel}
-            />
-            <KpiCard
-              label="Desconto médio"
-              value={percent(itens.atual.desconto)}
-              current={itens.atual.desconto}
-              previous={itens.anterior.desconto}
-              prevLabel={period.prevLabel}
-              note={itens.atual.descontoValor > 0 ? `${money(itens.atual.descontoValor)} em descontos` : undefined}
-              noteTone="neutral"
-              lowerIsBetter
-            />
-          </>
-        )}
-        <KpiCard
-          label="Taxa de devolução"
-          value={percent(devolucao(atual))}
-          current={devolucao(atual)}
-          previous={devolucao(anterior)}
-          prevLabel={period.prevLabel}
-          note={atual.devolucoes > 0 ? `${money(atual.devolucoes)} devolvidos` : undefined}
-          noteTone="neutral"
-          lowerIsBetter
-        />
-        {insights.clientes && (
-          <KpiCard
-            label="Clientes novos"
-            value={number(insights.clientes.novos)}
-            current={insights.clientes.novos}
-            prevLabel={period.prevLabel}
-            note={`${number(insights.clientes.total - insights.clientes.novos)} já compravam antes`}
-            noteTone="neutral"
-          />
-        )}
-        {margem && (
-          <KpiCard
-            label="Margem bruta"
-            value={percent(margemPct(margem.atual))}
-            current={margemPct(margem.atual)}
-            previous={margemPct(margem.anterior)}
-            prevLabel={period.prevLabel}
-            note={
-              margem.atual.cobertura < 0.95 && margem.atual.receita > 0
-                ? `sem custo cadastrado em ${percent(1 - margem.atual.cobertura)} das vendas`
-                : `${money(margem.atual.receita - margem.atual.custo)} de lucro bruto`
-            }
-            noteTone="neutral"
-          />
-        )}
-      </div>
+      <Suspense fallback={<SkeletonRow />}>
+        <SecondaryKpis insights={insights} atual={atual} anterior={anterior} prevLabel={period.prevLabel} />
+      </Suspense>
 
       {series.length > 1 && (
         <section className="rounded-3xl border border-line bg-surface p-5">
@@ -264,10 +210,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         />
       )}
 
-      {isManager && !vendedor && insights.vendedores && <VendorTable vendedores={insights.vendedores.atual} />}
-
-      {/* Só o gerente de verdade (o admin edita todos na área de admin) */}
-      {session.role === "gerente" && <TeamPhones />}
+      {isManager && !vendedor && (
+        <Suspense fallback={<Skeleton className="h-64" />}>
+          <VendorStatsTable insights={insights} />
+        </Suspense>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
         <RankList
@@ -280,37 +227,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {insights.categorias && (
-          <RankList
-            title="Vendas por categoria"
-            items={insights.categorias.map((c) => ({ key: c.codigo, nome: c.nome || "Sem categoria", total: c.total, detalhe: `${number(c.quantidade)} un.` }))}
-          />
-        )}
-        {insights.devolvidos && (
-          <RankList
-            title="Produtos mais devolvidos"
-            empty="Sem devoluções no período"
-            items={insights.devolvidos.map((p) => ({ key: p.codigo, nome: p.nome, total: p.total, detalhe: `${number(p.quantidade)} un.` }))}
-          />
-        )}
-        {showWeek && insights.semana && (
-          <RankList
-            title="Vendas por dia da semana"
-            items={insights.semana.map((d) => ({ key: d.dia, nome: WEEKDAYS[d.dia], total: d.total, detalhe: pedidosLabel(d.pedidos) }))}
-          />
-        )}
-        {insights.horas && (
-          <RankList
-            title="Vendas por horário"
-            items={insights.horas.map((h) => ({ key: h.hora, nome: `${String(h.hora).padStart(2, "0")}h às ${String(h.hora + 1).padStart(2, "0")}h`, total: h.total, detalhe: pedidosLabel(h.pedidos) }))}
-          />
-        )}
-      </div>
+      <Suspense fallback={<Skeleton className="h-80" />}>
+        <InsightLists insights={insights} showWeek={showWeek} />
+      </Suspense>
 
-      {insights.sumidos && <LostClients key={`${loja ?? ""}-${vendedor ?? ""}`} clientes={insights.sumidos} compras={SUMIDO_COMPRAS} dias={SUMIDO_DIAS} />}
+      <Suspense fallback={<Skeleton className="h-64" />}>
+        <Await promise={insights.sumidos}>
+          {(sumidos) =>
+            sumidos && <LostClients key={`${loja ?? ""}-${vendedor ?? ""}`} clientes={sumidos} compras={SUMIDO_COMPRAS} dias={SUMIDO_DIAS} />
+          }
+        </Await>
+      </Suspense>
 
       <OrdersTable pedidos={data.pedidos} showVendedor={isManager} />
+
+      {/* Não é indicador: fica no fim. Só o gerente de verdade (o admin edita todos na área de admin) */}
+      {session.role === "gerente" && <TeamPhones />}
     </Shell>
   );
 }
@@ -325,6 +257,132 @@ async function optional<T>(name: string, fn: () => Promise<T[]>): Promise<T[]> {
     console.error(`[dashboard] ${name}:`, err instanceof Error ? err.message : err);
     return [];
   }
+}
+
+const skeleton = "animate-pulse rounded-3xl border border-line bg-surface";
+const Skeleton = ({ className }: { className: string }) => <div className={`${skeleton} ${className}`} />;
+const SkeletonRow = () => (
+  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    {Array.from({ length: 4 }, (_, i) => (
+      <div key={i} className={`${skeleton} h-24`} />
+    ))}
+  </div>
+);
+
+/** Espera uma promessa dentro de um Suspense e entrega o valor para o conteúdo. */
+async function Await<T>({ promise, children }: { promise: Promise<T>; children: (value: T) => React.ReactNode }) {
+  return children(await promise);
+}
+
+const devolucao = (x: Summary) => (x.total + x.devolucoes ? x.devolucoes / (x.total + x.devolucoes) : 0);
+
+/** Segunda linha de indicadores (peças, desconto, devolução, clientes novos e margem). */
+async function SecondaryKpis({ insights, atual, anterior, prevLabel }: { insights: InsightPromises; atual: Summary; anterior: Summary; prevLabel: string }) {
+  const [vendedores, clientes, margem] = await Promise.all([insights.vendedores, insights.clientes, insights.margem]);
+  // Cada indicador some sozinho se a consulta dele falhar
+  const itens = vendedores && { atual: totals(vendedores.atual), anterior: totals(vendedores.anterior) };
+  const margemPct = (m: NonNullable<typeof margem>["atual"]) => (m.receita ? (m.receita - m.custo) / m.receita : 0);
+
+  return (
+    // Quantidade varia: dividem a linha por igual, 2 por linha no celular
+    <div className="flex flex-wrap gap-3 *:min-w-0 *:flex-1 *:basis-[calc(50%-0.375rem)] lg:flex-nowrap lg:*:basis-0">
+      {itens && (
+        <>
+          <KpiCard
+            label="Peças por atendimento"
+            value={number(Math.round(itens.atual.pecasPorPedido * 10) / 10)}
+            current={itens.atual.pecasPorPedido}
+            previous={itens.anterior.pecasPorPedido}
+            prevLabel={prevLabel}
+          />
+          <KpiCard
+            label="Desconto médio"
+            value={percent(itens.atual.desconto)}
+            current={itens.atual.desconto}
+            previous={itens.anterior.desconto}
+            prevLabel={prevLabel}
+            note={itens.atual.descontoValor > 0 ? `${money(itens.atual.descontoValor)} em descontos` : undefined}
+            noteTone="neutral"
+            lowerIsBetter
+          />
+        </>
+      )}
+      <KpiCard
+        label="Taxa de devolução"
+        value={percent(devolucao(atual))}
+        current={devolucao(atual)}
+        previous={devolucao(anterior)}
+        prevLabel={prevLabel}
+        note={atual.devolucoes > 0 ? `${money(atual.devolucoes)} devolvidos` : undefined}
+        noteTone="neutral"
+        lowerIsBetter
+      />
+      {clientes && (
+        <KpiCard
+          label="Clientes novos"
+          value={number(clientes.novos)}
+          current={clientes.novos}
+          prevLabel={prevLabel}
+          note={`${number(clientes.total - clientes.novos)} já compravam antes`}
+          noteTone="neutral"
+        />
+      )}
+      {margem && (
+        <KpiCard
+          label="Margem bruta"
+          value={percent(margemPct(margem.atual))}
+          current={margemPct(margem.atual)}
+          previous={margemPct(margem.anterior)}
+          prevLabel={prevLabel}
+          note={
+            margem.atual.cobertura < 0.95 && margem.atual.receita > 0
+              ? `sem custo cadastrado em ${percent(1 - margem.atual.cobertura)} das vendas`
+              : `${money(margem.atual.receita - margem.atual.custo)} de lucro bruto`
+          }
+          noteTone="neutral"
+        />
+      )}
+    </div>
+  );
+}
+
+/** Indicadores por vendedor (gerente): só vendedores ativos no TGFVEN. */
+async function VendorStatsTable({ insights }: { insights: InsightPromises }) {
+  const vendedores = await insights.vendedores;
+  return vendedores && <VendorTable vendedores={vendedores.atual.filter((v) => v.ativo)} />;
+}
+
+async function InsightLists({ insights, showWeek }: { insights: InsightPromises; showWeek: boolean }) {
+  const [categorias, devolvidos, semana, horas] = await Promise.all([insights.categorias, insights.devolvidos, insights.semana, insights.horas]);
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {categorias && (
+        <RankList
+          title="Vendas por categoria"
+          items={categorias.map((c) => ({ key: c.codigo, nome: c.nome || "Sem categoria", total: c.total, detalhe: `${number(c.quantidade)} un.` }))}
+        />
+      )}
+      {devolvidos && (
+        <RankList
+          title="Produtos mais devolvidos"
+          empty="Sem devoluções no período"
+          items={devolvidos.map((p) => ({ key: p.codigo, nome: p.nome, total: p.total, detalhe: `${number(p.quantidade)} un.` }))}
+        />
+      )}
+      {showWeek && semana && (
+        <RankList
+          title="Vendas por dia da semana"
+          items={semana.map((d) => ({ key: d.dia, nome: WEEKDAYS[d.dia], total: d.total, detalhe: pedidosLabel(d.pedidos) }))}
+        />
+      )}
+      {horas && (
+        <RankList
+          title="Vendas por horário"
+          items={horas.map((h) => ({ key: h.hora, nome: `${String(h.hora).padStart(2, "0")}h às ${String(h.hora + 1).padStart(2, "0")}h`, total: h.total, detalhe: pedidosLabel(h.pedidos) }))}
+        />
+      )}
+    </div>
+  );
 }
 
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];

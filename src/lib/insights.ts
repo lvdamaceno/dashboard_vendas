@@ -1,7 +1,7 @@
 import "server-only";
 import { env } from "./env";
 import { addDays, todayIso, type Period } from "./period";
-import { countVendas, isDevolucao, isVenda, n, s, salesWhere, scopeWhere, sign } from "./sales";
+import { countVendas, isDevolucao, isVenda, n, s, salesWhere, scopeWhere, serieValida, sign } from "./sales";
 import { listDismissedClients } from "./painel";
 import { isManagerial, type Session } from "./session";
 import { query } from "./sankhya/client";
@@ -18,6 +18,8 @@ const item = `(ITE.VLRTOT - COALESCE(ITE.VLRDESC, 0))`;
 export interface VendorStats {
   codigo: number;
   nome: string;
+  /** TGFVEN.ATIVO: inativos saem da tabela, mas contam nos totais da loja */
+  ativo: boolean;
   /** peças vendidas (QTDNEG) e notas de venda */
   pecas: number;
   pedidos: number;
@@ -35,6 +37,9 @@ export interface Margin {
   /** fração da receita total que tem custo (para avisar quando a margem é parcial) */
   cobertura: number;
 }
+
+/** Cada indicador chega por conta própria (a tela mostra cada bloco quando o dele termina). */
+export type InsightPromises = { [K in keyof Insights]: Promise<Insights[K]> };
 
 export interface Insights {
   vendedores: { atual: VendorStats[]; anterior: VendorStats[] } | null;
@@ -65,7 +70,7 @@ async function safe<T>(name: string, run: () => Promise<T>): Promise<T | null> {
 
 async function vendorStats(session: Session, from: string, to: string, vendedor?: number): Promise<VendorStats[]> {
   const rows = await query(
-    `SELECT CAB.CODVEND, VEN.APELIDO,
+    `SELECT CAB.CODVEND, VEN.APELIDO, VEN.ATIVO,
             SUM(CASE WHEN ${isVenda()} THEN ITE.QTDNEG ELSE 0 END) AS PECAS,
             COUNT(DISTINCT CASE WHEN ${isVenda()} THEN CAB.NUNOTA END) AS PEDIDOS,
             SUM(CASE WHEN ${isVenda()} THEN ITE.VLRTOT ELSE 0 END) AS BRUTO,
@@ -75,11 +80,12 @@ async function vendorStats(session: Session, from: string, to: string, vendedor?
        JOIN TGFCAB CAB ON CAB.NUNOTA = ITE.NUNOTA
        LEFT JOIN TGFVEN VEN ON VEN.CODVEND = CAB.CODVEND
      ${salesWhere(session, from, to, vendedor)}
-      GROUP BY CAB.CODVEND, VEN.APELIDO`,
+      GROUP BY CAB.CODVEND, VEN.APELIDO, VEN.ATIVO`,
   );
   return rows.map((r) => ({
     codigo: n(r.CODVEND),
     nome: s(r.APELIDO) || `Vendedor ${n(r.CODVEND)}`,
+    ativo: r.ATIVO === "S",
     pecas: n(r.PECAS),
     pedidos: n(r.PEDIDOS),
     bruto: n(r.BRUTO),
@@ -108,7 +114,7 @@ async function margin(session: Session, from: string, to: string, vendedor?: num
   return { receita: comCusto, custo: n(row?.CUSTO), cobertura: receita ? comCusto / receita : 0 };
 }
 
-export async function getInsights(session: Session, period: Period, vendedor?: number): Promise<Insights> {
+export function getInsights(session: Session, period: Period, vendedor?: number): InsightPromises {
   const where = salesWhere(session, period.from, period.to, vendedor);
   const vendas = `${where}\n AND ${isVenda()}`;
   const today = todayIso();
@@ -116,7 +122,7 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
   const weekday = `(DATEDIFF(DAY, ${date("1900-01-01")}, CAB.DTNEG) % 7)`; // 01/01/1900 foi segunda-feira
   const hhmm = `FLOOR(CAB.HRMOV / 100)`;
 
-  const [vendedores, margem, clientes, categorias, devolvidos, semana, horas, sumidos] = await Promise.all([
+  const [vendedores, margem, clientes, categorias, devolvidos, semana, horas, sumidos] = [
     safe("vendedores", async () => {
       const [atual, anterior] = await Promise.all([
         vendorStats(session, period.from, period.to, vendedor),
@@ -132,7 +138,7 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
           ]);
           return { atual, anterior };
         })
-      : null,
+      : Promise.resolve(null),
     // Novo = a primeira compra (em qualquer loja) foi dentro do período
     safe("clientes novos", async () => {
       const [row] = await query(
@@ -144,7 +150,7 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
                   FROM TGFCAB OLD
                  WHERE OLD.CODPARC = C.CODPARC
                    AND OLD.CODTIPOPER IN (${inList(env().SALES_TOPS_VENDA)})
-                   AND OLD.SERIENOTA > 0) P`,
+                   AND ${serieValida("OLD")}) P`,
       );
       return { total: n(row?.CLIENTES), novos: n(row?.NOVOS) };
     }),
@@ -215,8 +221,7 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
     safe("clientes sumidos", async () => {
       const clauses = [
         isVenda(),
-        `CAB.SERIENOTA IS NOT NULL`,
-        `CAB.SERIENOTA > 0`,
+        serieValida("CAB"),
         `CAB.CODPARC > 0`,
         `CAB.DTNEG >= ${date(addDays(today, -365))}`,
         ...scopeWhere(session, vendedor),
@@ -252,7 +257,7 @@ export async function getInsights(session: Session, period: Period, vendedor?: n
         total: n(r.TOTAL),
       }));
     }),
-  ]);
+  ] as const;
 
   return { vendedores, margem, clientes, categorias, devolvidos, semana, horas, sumidos };
 }

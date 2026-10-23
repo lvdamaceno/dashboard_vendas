@@ -115,7 +115,8 @@ a usá-lo; **Usar o do Sankhya** apaga o salvo. O gerente edita os da equipe da 
 
 ## Vendas e devoluções
 
-`TGFCAB` com `SERIENOTA IS NOT NULL AND SERIENOTA > 0`, pela data `DTNEG`:
+`TGFCAB` com série numérica maior que zero (`SERIENOTA` é texto e há séries como `CF`, de cupom, que ficam
+de fora; a checagem não converte o texto, então não quebra a consulta), pela data `DTNEG`:
 
 - `CODTIPOPER IN (SALES_TOPS_VENDA)` (padrão `1110, 1101, 1105, 1112, 1181`) → soma `VLRNOTA`;
 - `CODTIPOPER IN (SALES_TOPS_DEVOLUCAO)` (padrão `1201`) → **subtrai** `VLRNOTA`, na data da devolução
@@ -125,6 +126,18 @@ Faturamento, gráfico diário e rankings são **líquidos** (vendas − devoluç
 `VLRTOT − VLRDESC` dos itens com o mesmo sinal. Devoluções aparecem em vermelho/negativo nas
 últimas movimentações e o card de faturamento mostra o total devolvido. "Pedidos", "Clientes"
 e o ticket médio (líquido ÷ pedidos) contam só as vendas.
+
+Rankings, a tabela de indicadores por vendedor e os filtros de vendedor só listam vendedores ativos
+(`TGFVEN.ATIVO = 'S'`). As vendas de quem foi desativado continuam somando nos totais da loja.
+
+## Desempenho
+
+- As consultas do painel saem todas ao mesmo tempo (vendas, avisos, lojas e indicadores).
+- O topo (filtros, faturamento, pedidos, gráfico) aparece assim que as vendas chegam; cada indicador
+  complementar aparece sozinho quando a consulta dele termina (Suspense), sem segurar a tela.
+- Cache curto em memória no cliente do Sankhya (`src/lib/sankhya/client.ts`): resultados valem 1 minuto
+  (lojas 10 min, lista de pessoas 5 min); consultas iguais ao mesmo tempo viram uma só. A chave é o SQL inteiro,
+  que já traz o escopo de quem pediu. Login e checagens de permissão sempre consultam na hora.
 
 ## Indicadores complementares
 

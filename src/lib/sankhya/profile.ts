@@ -27,6 +27,7 @@ export async function fetchProfile(cpf: string): Promise<Session> {
       WHERE FUN.CPF = ${str(cpf)}
         AND FUN.SITUACAO <> 0
         AND FUN.DTDEM IS NULL`,
+    { ttlMs: 0 },
   );
 
   if (!rows.length) throw new ProfileError("CPF não encontrado como funcionário ativo no Sankhya.");
