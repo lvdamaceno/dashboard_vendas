@@ -31,9 +31,10 @@ const schema = z.object({
     .string()
     .regex(/^CUS[A-Z]{2,10}$/, "nome de coluna de TGFCUS, ex.: CUSGER")
     .default("CUSGER"),
-  // Área de admin (/admin/login); sem os dois, o acesso de admin fica desligado
+  // Área de admin (/admin/login); sem os dois, o acesso de admin fica desligado.
+  // O tamanho mínimo da senha é conferido só no login do admin, para não derrubar o resto do app.
   ADMIN_USER: optional(z.string()),
-  ADMIN_PASSWORD: optional(z.string().min(12, "ADMIN_PASSWORD precisa ter ao menos 12 caracteres")),
+  ADMIN_PASSWORD: optional(z.string()),
   // Repositório onde o admin abre issues a partir das sugestões
   GITHUB_REPO: optional(z.string().regex(/^[\w.-]+\/[\w.-]+$/, "formato dono/repositorio")).transform((v) => v ?? "lvdamaceno/dashboard_vendas"),
 });
