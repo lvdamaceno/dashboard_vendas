@@ -82,3 +82,36 @@ self.addEventListener("fetch", (event) => {
   }
   event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)));
 });
+
+// --- notificações no celular (Web Push) ---
+self.addEventListener("push", (event) => {
+  let msg = {};
+  try {
+    msg = event.data ? event.data.json() : {};
+  } catch {
+    msg = { title: "Painel de Vendas", body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(msg.title || "Painel de Vendas", {
+      body: msg.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: msg.tag,
+      renotify: Boolean(msg.tag),
+      data: { url: msg.url || "/dashboard" },
+    }),
+  );
+});
+
+// Tocar na notificação abre (ou traz para frente) o painel na tela certa
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/dashboard", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      const aberto = wins.find((w) => new URL(w.url).origin === self.location.origin);
+      if (aberto) return aberto.navigate(url).then((w) => (w || aberto).focus());
+      return self.clients.openWindow(url);
+    }),
+  );
+});

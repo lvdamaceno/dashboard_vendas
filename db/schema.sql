@@ -155,3 +155,26 @@ CREATE TABLE IF NOT EXISTS painel.evento (
   mensagem  text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS evento_criado_em_idx ON painel.evento (criado_em DESC);
+
+-- Senha do master (diretoria): criada no primeiro acesso, guardada só como hash (scrypt)
+ALTER TABLE painel.usuario_master ADD COLUMN IF NOT EXISTS senha_hash text;
+ALTER TABLE painel.usuario_master ADD COLUMN IF NOT EXISTS senha_em timestamptz;
+
+-- Configurações geradas pelo próprio app (ex.: chaves VAPID das notificações)
+CREATE TABLE IF NOT EXISTS painel.config (
+  chave text PRIMARY KEY,
+  valor text NOT NULL
+);
+
+-- Celulares inscritos para receber notificações (Web Push). Uma linha por navegador/aparelho.
+CREATE TABLE IF NOT EXISTS painel.push_inscricao (
+  endpoint  text PRIMARY KEY,
+  p256dh    text NOT NULL,
+  auth      text NOT NULL,
+  usuario   text NOT NULL,
+  papel     text NOT NULL,
+  codemp    integer,
+  codvend   integer,
+  criado_em timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS push_inscricao_usuario_idx ON painel.push_inscricao (usuario);

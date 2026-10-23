@@ -9,7 +9,7 @@ import { countPendingFeedback, listFeedback, listMasters, listNotices, type Feed
 import { listPeopleForAdmin } from "@/lib/people";
 import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
-import { deleteMaster, removeNotice, removeReminder, toggleFeedback, toggleReminder } from "./actions";
+import { deleteMaster, removeNotice, removeReminder, resetMasterPasswordAction, toggleFeedback, toggleReminder } from "./actions";
 import { ConfirmButton, MasterForm, NoticeForm, ReminderForm } from "./forms";
 import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
 import { configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type Check } from "@/lib/health";
@@ -142,7 +142,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
         <>
           <section className={card}>
             <h2 className="mb-1 text-base">Adicionar master</h2>
-            <p className="mb-3 text-sm text-ink-2">Diretores entram com o CPF e veem todas as lojas, sem precisar de cadastro no Sankhya.</p>
+            <p className="mb-3 text-sm text-ink-2">
+              Diretores entram com o CPF e uma senha, que eles mesmos criam no primeiro acesso, e veem todas as lojas, sem precisar de
+              cadastro no Sankhya. Peça para fazerem o primeiro acesso logo: até criarem a senha, quem souber o CPF poderia criá-la.
+            </p>
             <MasterForm />
           </section>
           <section className={card}>
@@ -155,8 +158,23 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                   <li key={m.id} className="flex items-center gap-3 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{m.nome}</p>
-                      <p className="tabular text-xs text-ink-3">CPF ***.{m.cpf.slice(3, 6)}.{m.cpf.slice(6, 9)}-**</p>
+                      <p className="tabular text-xs text-ink-3">
+                        CPF ***.{m.cpf.slice(3, 6)}.{m.cpf.slice(6, 9)}-** ·{" "}
+                        {m.senhaEm ? (
+                          <>senha criada em {when.format(m.senhaEm)}</>
+                        ) : (
+                          <span className="font-medium text-bad">ainda não criou a senha (primeiro acesso pendente)</span>
+                        )}
+                      </p>
                     </div>
+                    {m.senhaEm && (
+                      <form action={resetMasterPasswordAction}>
+                        <input type="hidden" name="id" value={m.id} />
+                        <ConfirmButton message={`Zerar a senha de ${m.nome}? No próximo acesso ele cria outra.`} className={small}>
+                          Zerar senha
+                        </ConfirmButton>
+                      </form>
+                    )}
                     <form action={deleteMaster}>
                       <input type="hidden" name="id" value={m.id} />
                       <ConfirmButton message={`Remover o acesso de ${m.nome}?`} className={small}>
@@ -296,6 +314,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                   <Stat label="Masters" value={uso.masters} />
                   <Stat label="Lembretes ativos" value={uso.lembretes_ativos} />
                   <Stat label="Fotos na fila" value={uso.fotos} />
+                  <Stat label="Celulares com notificação" value={uso.celulares} />
                 </div>
               </>
             )}

@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { deletePhoto, finishService, joinQueue, leaveQueue, reorderQueue, savePhoto, startService } from "@/lib/fila";
+import { deletePhoto, finishService, joinQueue, leaveQueue, nextWaiting, reorderQueue, savePhoto, startService } from "@/lib/fila";
+import { sendPushLater } from "@/lib/push";
 import { loadQueue, queueStore, type QueueView } from "@/lib/fila-access";
 import { getSession } from "@/lib/session";
 
@@ -23,7 +24,17 @@ async function act(lojaParam: number | undefined, run: (codemp: number, codvend:
   try {
     const codemp = await queueStore(session, parsed.success ? parsed.data : undefined);
     if (!codemp) return { ok: false, error: "Não encontramos a sua loja." } as const;
+    const antes = await nextWaiting(codemp);
     await run(codemp, session.codvend, session.apelido);
+    // Quem acabou de virar o próximo recebe "É a sua vez!" no celular (menos quem fez a ação: já está vendo a tela)
+    const depois = await nextWaiting(codemp);
+    if (depois && depois.codvend !== antes?.codvend && depois.codvend !== session.codvend) {
+      sendPushLater(
+        { codvend: depois.codvend },
+        { title: "🙋 É a sua vez!", body: "Você é o próximo a atender na fila. Receba o próximo cliente.", url: "/fila", tag: "fila-vez" },
+        { ttl: 600, urgent: true },
+      );
+    }
     return { ok: true, view: await loadQueue(session, codemp) } as const;
   } catch (err) {
     console.error("[fila] erro:", err instanceof Error ? err.message : err);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { SMILE, SMILE_BOX } from "@/components/logo";
+import { PushToggle } from "@/components/push-toggle";
 import type { QueueView } from "@/lib/fila-access";
 import type { Session } from "@/lib/session";
 import { enterQueue, exitQueue, finishCustomer, removeFromQueue, removePhoto, reorder, serveCustomer, uploadPhoto, type QueueResult } from "./actions";
@@ -266,6 +267,9 @@ export function QueueBoard({ initial, error: initialError, role, me, loja, lojaN
       )}
 
       {me && !compact && <PhotoPicker me={me} onChanged={() => router.refresh()} />}
+
+      {/* Vendedor: "É a sua vez!" chega no celular mesmo com o painel fechado */}
+      {role === "vendedor" && !compact && <PushToggle />}
     </div>
   );
 }

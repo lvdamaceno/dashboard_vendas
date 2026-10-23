@@ -1,6 +1,7 @@
 import "server-only";
 import { sql } from "./db";
 import { addDays, todayIso } from "./period";
+import { sendPushLater } from "./push";
 
 // Lembretes recorrentes (painel.lembrete): no dia, viram um aviso no sino do público escolhido.
 // Não há tarefa agendada: a entrega acontece na primeira abertura de tela depois que o lembrete vence.
@@ -106,5 +107,9 @@ export async function deliverDueReminders() {
       [r.titulo, r.mensagem, r.publico === "todos" ? null : r.publico],
     );
     console.info(`[lembretes] "${r.titulo}" entregue para ${r.publico} (${occ})`);
+    sendPushLater(
+      { papel: r.publico === "todos" ? null : r.publico },
+      { title: `⏰ ${r.titulo}`, body: r.mensagem.slice(0, 180), url: r.publico === "master" ? "/metas" : "/dashboard", tag: `lembrete-${r.id}` },
+    );
   }
 }

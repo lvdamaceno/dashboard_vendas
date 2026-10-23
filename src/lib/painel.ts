@@ -10,11 +10,38 @@ export interface Master {
   cpf: string;
   nome: string;
   criadoEm: Date;
+  /** Quando criou (ou trocou) a senha; null = ainda não fez o primeiro acesso */
+  senhaEm: Date | null;
 }
 
-export async function findMaster(cpf: string): Promise<{ id: number; nome: string } | null> {
-  const rows = await sql<{ id: number; nome: string }>(`SELECT id, nome FROM painel.usuario_master WHERE cpf = $1`, [cpf]);
+export async function findMaster(cpf: string): Promise<{ id: number; nome: string; senhaHash: string | null } | null> {
+  const rows = await sql<{ id: number; nome: string; senhaHash: string | null }>(
+    `SELECT id, nome, senha_hash AS "senhaHash" FROM painel.usuario_master WHERE cpf = $1`,
+    [cpf],
+  );
   return rows[0] ?? null;
+}
+
+export async function getMasterPasswordHash(id: number) {
+  const rows = await sql<{ senhaHash: string | null }>(`SELECT senha_hash AS "senhaHash" FROM painel.usuario_master WHERE id = $1`, [id]);
+  return rows[0]?.senhaHash ?? null;
+}
+
+/**
+ * Grava a senha do master. onlyIfEmpty: só no primeiro acesso (se outra aba/pessoa já criou, não sobrescreve).
+ * Retorna se gravou.
+ */
+export async function setMasterPassword(id: number, hash: string, onlyIfEmpty: boolean) {
+  const rows = await sql(
+    `UPDATE painel.usuario_master SET senha_hash = $2, senha_em = now() WHERE id = $1 ${onlyIfEmpty ? "AND senha_hash IS NULL" : ""} RETURNING id`,
+    [id, hash],
+  );
+  return rows.length > 0;
+}
+
+/** Admin zera a senha: no próximo acesso o master cria outra. */
+export async function resetMasterPassword(id: number) {
+  await sql(`UPDATE painel.usuario_master SET senha_hash = NULL, senha_em = NULL WHERE id = $1`, [id]);
 }
 
 export async function getMaster(id: number): Promise<{ id: number; nome: string } | null> {
@@ -28,7 +55,7 @@ export async function masterExists(id: number) {
 }
 
 export async function listMasters() {
-  return sql<Master>(`SELECT id, cpf, nome, criado_em AS "criadoEm" FROM painel.usuario_master ORDER BY nome`);
+  return sql<Master>(`SELECT id, cpf, nome, criado_em AS "criadoEm", senha_em AS "senhaEm" FROM painel.usuario_master ORDER BY nome`);
 }
 
 export async function addMaster(cpf: string, nome: string) {

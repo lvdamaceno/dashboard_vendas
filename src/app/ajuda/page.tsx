@@ -65,6 +65,7 @@ const SECTIONS = [
   ["entrar", "Como entrar"],
   ["tela", "Conhecendo a tela"],
   ["fila", "Fila de atendimento"],
+  ["notificacoes", "Notificações no celular"],
   ["periodo", "Escolhendo o período"],
   ["numeros", "Entendendo os números"],
   ["grafico", "O gráfico de vendas por dia"],
@@ -358,6 +359,36 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     <>
       <Shot name="cabecalho" alt="Faixa vermelha com o sino de avisos, o logotipo, o nome ANA PAULA, a função Vendedor e o botão Sair" caption="A faixa do topo: sino de avisos, quem está usando e Sair" />
       <Tip>Para ver tudo, arraste a tela para cima com o dedo, como em qualquer site.</Tip>
+    </>,
+  ],
+  notificacoes: [
+    <>
+      <p>
+        O painel pode avisar no seu celular, <strong>mesmo com ele fechado</strong>, como um aplicativo:
+      </p>
+      <Steps>
+        <li>
+          🙋 <strong>“É a sua vez!”</strong> quando você vira o próximo da fila de atendimento.
+        </li>
+        <li>
+          🔔 <strong>Avisos novos</strong> da gerência.
+        </li>
+      </Steps>
+      <Tip>Tocando na notificação, o painel abre direto na tela certa.</Tip>
+    </>,
+    <>
+      <p>
+        <strong>Para ativar:</strong> no painel ou na tela da fila, toque em <strong>Ativar</strong>, no quadro{" "}
+        <strong>Notificações no celular</strong>, e depois em <strong>Permitir</strong> na pergunta do celular.
+      </p>
+      <Tip kind="atencao">
+        <strong>iPhone:</strong> as notificações só funcionam com o painel <strong>instalado na tela inicial</strong> (veja{" "}
+        <strong>Instalar no celular</strong>, mais adiante). Depois de instalar, abra pelo ícone e toque em Ativar.
+      </Tip>
+      <Tip>
+        Tocou em “Não permitir” sem querer? Libere nas configurações do celular, em Notificações, e toque em Ativar de novo. Para parar de
+        receber, toque em <strong>Desativar</strong> na tela da fila.
+      </Tip>
     </>,
   ],
   periodo: [

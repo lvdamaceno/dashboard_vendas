@@ -15,6 +15,15 @@ export interface QueueEntry {
   fotoVersao: number | null;
 }
 
+/** Primeiro que está esperando (não atendendo) na fila da loja. */
+export async function nextWaiting(codemp: number) {
+  const rows = await sql<{ codvend: number; nome: string }>(
+    `SELECT codvend, nome FROM painel.fila WHERE dia = ${DIA} AND codemp = $1 AND NOT atendendo ORDER BY posicao, entrou_em LIMIT 1`,
+    [codemp],
+  );
+  return rows[0] ?? null;
+}
+
 export async function listQueue(codemp: number) {
   return sql<QueueEntry>(
     `SELECT f.codvend, f.nome, f.posicao, f.atendendo, f.entrou_em AS "entrouEm",

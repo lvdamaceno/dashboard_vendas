@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { clearPhoneOverride, createFeedback, createNotice, dismissClient, getPhoneOverrides, markNoticesSeen, savePhoneOverride } from "@/lib/painel";
 import { normalizePhone } from "@/lib/phone";
+import { removeSubscription, saveSubscription, sendPushLater, vapidPublicKey, type PushSubscriptionJSON } from "@/lib/push";
 import { clientInScope, getTeamPhones, vendorStore } from "@/lib/sales";
 import { getSession, seesAllStores, viewSession, type Session } from "@/lib/session";
 
@@ -49,6 +50,8 @@ export async function sendNotice(_prev: FormState, form: FormData): Promise<Form
   try {
     await createNotice({ titulo, mensagem, codemp, autorNome: session.apelido, autorPapel: session.role });
     console.info(`[avisos] ${session.role} ${session.apelido} enviou aviso para ${codemp ? `a loja ${codemp}` : "todas as lojas"}`);
+    // Notificação no celular de quem recebe o aviso
+    sendPushLater({ codemp }, { title: `🔔 ${titulo}`, body: mensagem.slice(0, 180), url: "/dashboard", tag: `aviso-${Date.now()}` });
   } catch (err) {
     console.error("[avisos] erro ao enviar:", err instanceof Error ? err.message : err);
     return { error: "Não foi possível enviar o aviso. Tente novamente." };
@@ -185,4 +188,47 @@ export async function listEditablePhones(): Promise<EditablePhone[] | { error: s
 async function editablePhones(codemp?: number): Promise<EditablePhone[]> {
   const [people, overrides] = await Promise.all([getTeamPhones(codemp), getPhoneOverrides()]);
   return people.map((p) => ({ ...p, app: overrides.get(p.codvend)?.telefone ?? null }));
+}
+
+// --- notificações no celular (Web Push) ---
+
+/** Chave pública para o navegador se inscrever. */
+export async function getPushKey(): Promise<string | null> {
+  const session = await getSession();
+  if (!session) return null;
+  try {
+    return await vapidPublicKey();
+  } catch (err) {
+    console.error("[push] chave:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+const subSchema = z.object({
+  endpoint: z.string().url().max(1000),
+  keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+});
+
+/** Guarda a inscrição deste celular para a pessoa logada. */
+export async function subscribePush(sub: unknown): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Sessão expirada. Entre novamente." };
+  const parsed = subSchema.safeParse(sub);
+  if (!parsed.success || !parsed.data.endpoint.startsWith("https://")) return { error: "Inscrição inválida." };
+  try {
+    await saveSubscription(session, parsed.data as PushSubscriptionJSON);
+    console.info(`[push] ${session.apelido} (${session.role}) ativou as notificações`);
+  } catch (err) {
+    console.error("[push] erro ao salvar inscrição:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível ativar. Tente novamente." };
+  }
+  return { ok: true };
+}
+
+export async function unsubscribePush(endpoint: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Sessão expirada." };
+  if (typeof endpoint !== "string" || endpoint.length > 1000) return { error: "Inválido." };
+  await removeSubscription(endpoint).catch(() => undefined);
+  return { ok: true };
 }

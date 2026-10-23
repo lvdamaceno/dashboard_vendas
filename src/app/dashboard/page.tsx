@@ -19,6 +19,7 @@ import { SankhyaError } from "@/lib/sankhya/client";
 import { getSession, isManagerial, seesAllStores, viewSession, type Session } from "@/lib/session";
 import { OfflineBanner } from "@/components/offline-banner";
 import { PersonPicker } from "@/components/person-picker";
+import { PushToggle } from "@/components/push-toggle";
 import { TeamPhones } from "@/components/phone-editor";
 import { roleLabel, Shell } from "@/components/shell";
 
@@ -141,6 +142,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         </details>
       )}
+
+      {session.role !== "admin" && <PushToggle banner />}
 
       <Filters
         key={`${period.preset}-${period.from}-${period.to}-${loja ?? ""}-${vendedor ?? ""}`}

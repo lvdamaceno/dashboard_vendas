@@ -6,12 +6,14 @@ import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-
 import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
 import { fetchContact } from "@/lib/sankhya/contact";
 import { photoVersion } from "@/lib/fila";
-import { findMaster, getPhoneOverrides } from "@/lib/painel";
+import { findMaster, getMasterPasswordHash, getPhoneOverrides, setMasterPassword } from "@/lib/painel";
+import { hashPassword, MIN_PASSWORD, verifyPassword } from "@/lib/password";
 import { formatPhone } from "@/lib/phone";
 import { cookies } from "next/headers";
 import { CLEAR_ADMIN_HINT, createSession, destroySession, getSession } from "@/lib/session";
 
-export type LoginState = { error?: string; cpf?: string };
+/** etapa: depois do CPF, o master informa a senha (ou cria, no primeiro acesso) */
+export type LoginState = { error?: string; cpf?: string; etapa?: "senha" | "criar"; nome?: string };
 
 /** CPF só com dígitos e dígitos verificadores corretos. */
 function validCpf(cpf: string) {
@@ -39,15 +41,35 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     return { error: "Muitas tentativas. Aguarde 15 minutos e tente novamente.", cpf: raw };
   }
 
-  // Diretores (master) cadastrados pelo admin entram sem passar pelo Sankhya
+  // Diretores (master) cadastrados pelo admin entram com CPF + senha, sem passar pelo Sankhya
   let master: Awaited<ReturnType<typeof findMaster>> = null;
   try {
     master = await findMaster(cpf);
   } catch (err) {
+    // Sem o banco do painel, vendedores e gerentes continuam entrando pelo Sankhya
     console.error("[login] não foi possível consultar os masters:", err instanceof Error ? err.message : err);
   }
   if (master) {
     const apelido = master.nome.trim().split(/\s+/)[0];
+    const senha = typeof form.get("senha") === "string" ? String(form.get("senha")).slice(0, 200) : "";
+    const etapa = master.senhaHash ? "senha" : "criar";
+    if (!senha) return { cpf: raw, etapa, nome: apelido };
+
+    if (etapa === "criar") {
+      // Primeiro acesso: cria a senha (só se ainda não existir)
+      const confirmacao = String(form.get("confirmacao") ?? "").slice(0, 200);
+      if (senha.length < MIN_PASSWORD) return { cpf: raw, etapa, nome: apelido, error: `A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.` };
+      if (senha !== confirmacao) return { cpf: raw, etapa, nome: apelido, error: "As duas senhas não são iguais." };
+      if (!(await setMasterPassword(master.id, await hashPassword(senha), true))) {
+        return { cpf: raw, etapa: "senha", nome: apelido, error: "A senha já foi criada. Entre com ela." };
+      }
+      console.info(`[login] senha criada no primeiro acesso: ${master.nome} — master`);
+    } else if (!(await verifyPassword(senha, master.senhaHash!))) {
+      keys.forEach(registerFailure);
+      console.warn(`[login] ${masked(cpf)} sem acesso: senha de master incorreta (ip ${ip})`);
+      return { cpf: raw, etapa, nome: apelido, error: "Senha incorreta." };
+    }
+
     await createSession({ role: "master", masterId: master.id, nome: master.nome, apelido, codfunc: 0, codvend: 0, codemp: 0 });
     console.info(`[login] ok ${master.nome} — master`);
     keys.forEach(clearFailures);
@@ -139,4 +161,36 @@ export async function getBusinessCard(): Promise<BusinessCard> {
     console.error(`[cartao] erro ao carregar contato do funcionário ${session.codfunc} (empresa ${session.codemp}):`, err instanceof Error ? err.message : err);
     return { ok: false, error: "Não foi possível carregar seu cartão. Tente novamente." };
   }
+}
+
+export type PasswordState = { ok?: boolean; error?: string };
+
+/** O master troca a própria senha (precisa da atual). */
+export async function changeMasterPassword(_prev: PasswordState, form: FormData): Promise<PasswordState> {
+  const session = await getSession();
+  if (session?.role !== "master" || !session.masterId) return { error: "Só a diretoria tem senha aqui." };
+  const atual = String(form.get("atual") ?? "").slice(0, 200);
+  const nova = String(form.get("nova") ?? "").slice(0, 200);
+  const confirmacao = String(form.get("confirmacao") ?? "").slice(0, 200);
+  if (nova.length < MIN_PASSWORD) return { error: `A nova senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.` };
+  if (nova !== confirmacao) return { error: "As duas senhas novas não são iguais." };
+
+  const ip = await clientIp();
+  const key = `senha:${session.masterId}`;
+  if (isBlocked(key) || isBlocked(`ip:${ip}`)) return { error: "Muitas tentativas. Aguarde 15 minutos e tente novamente." };
+  try {
+    const hash = await getMasterPasswordHash(session.masterId);
+    if (!hash || !(await verifyPassword(atual, hash))) {
+      registerFailure(key);
+      console.warn(`[login] ${session.apelido} errou a senha atual ao trocar (ip ${ip})`);
+      return { error: "A senha atual está incorreta." };
+    }
+    await setMasterPassword(session.masterId, await hashPassword(nova), false);
+    clearFailures(key);
+    console.info(`[login] ${session.nome} trocou a senha — master`);
+  } catch (err) {
+    console.error("[login] erro ao trocar senha:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível trocar a senha. Tente novamente." };
+  }
+  return { ok: true };
 }

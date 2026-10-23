@@ -55,6 +55,19 @@ export function Shell({ session, notices, stores = [], scope, feedback = true, c
               Admin
             </Link>
           )}
+          {session.role === "master" && (
+            <Link
+              href="/senha"
+              aria-label="Minha senha"
+              title="Minha senha"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
+            >
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <circle cx="8" cy="15" r="4" />
+                <path d="m11 12 8-8m-3 3 2 2m-4 0 1.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+          )}
           <Link
             href="/ajuda"
             aria-label="Como usar o painel"

@@ -56,8 +56,10 @@ Em produção, sirva **somente via HTTPS** (Nginx/Caddy/load balancer na frente)
 Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAuth 2.0
 `client_credentials`) — o app não acessa o servidor Sankhya diretamente.
 
-1. O usuário entra **apenas com o CPF**. Se o CPF estiver em `painel.usuario_master`, entra como
-   **master** (diretoria) sem consultar o Sankhya.
+1. O usuário entra **com o CPF**. Se o CPF estiver em `painel.usuario_master`, é **master** (diretoria): em seguida
+   informa a **senha**, criada por ele mesmo no primeiro acesso (pelo menos 8 caracteres, guardada só como hash scrypt
+   em `senha_hash`; troca em **Minha senha**, `/senha`). O admin vê quem ainda não criou a senha e pode **zerar** a senha.
+   Até o primeiro acesso, quem souber o CPF poderia criar a senha: peça aos diretores para entrarem logo.
 2. Senão, o sistema busca, com o usuário de integração:
    - `TFPFUN` pelo CPF, só funcionário ativo (`SITUACAO <> 0`) e não demitido (`DTDEM IS NULL`) → `CODEMP` + `CODFUNC` (a empresa entra no filtro porque o mesmo
      `CODFUNC` pode existir em empresas diferentes);
@@ -240,6 +242,22 @@ O `src/instrumentation.ts` liga o monitor (`src/lib/monitor*.ts`): copia o conso
 erros, alertas e linhas `[login]`/`[admin]` no banco em lotes a cada 5 s (apagando o que passa de 30 dias) e registra os
 erros de página do Next (`onRequestError`). O log completo da hospedagem continua no Render.
 
+## Notificações no celular (Web Push)
+
+O vendedor ativa em **Notificações no celular** (aviso no painel e quadro na tela da fila); o celular pede permissão e
+a inscrição vai para `painel.push_inscricao`. As chaves VAPID são geradas na primeira vez e ficam em `painel.config`
+(nada a configurar na hospedagem; `PUSH_SUBJECT` opcional). O service worker mostra a notificação e, ao tocar, abre a
+tela certa.
+
+| Quando | Para quem |
+|---|---|
+| Alguém vira o **próximo da fila** | Só esse vendedor ("🙋 É a sua vez!", prioridade alta, válida por 10 min); quem fez a ação não recebe |
+| **Aviso** enviado | Os mesmos do sino: a loja (vendedores e gerentes) ou todos |
+| **Lembrete** entregue | O público do lembrete |
+
+Inscrições que o serviço de push devolve como inexistentes (404/410) são apagadas. **iPhone:** só com o painel
+instalado na tela inicial (iOS 16.4+). A aba Saúde mostra quantos celulares estão inscritos.
+
 ## Lembretes (admin)
 
 Aba **Lembretes** do admin: título, mensagem, público (diretoria, gerentes, vendedores ou todos) e repetição — todo mês
@@ -286,6 +304,8 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `meta_pessoa` | Pessoas consideradas na meta individual de cada loja no mês (uma loja por pessoa) |
 | `feriado` | Feriados criados e dias em que a loja abre num feriado (ajustes do calendário) |
 | `evento` | Erros, alertas e acessos para a tela Saúde (30 dias) |
+| `push_inscricao` | Celulares inscritos para notificações (um por navegador/aparelho) |
+| `config` | Configurações geradas pelo app (chaves VAPID) |
 | `lembrete` | Lembretes recorrentes do admin (viram avisos no sino) |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |

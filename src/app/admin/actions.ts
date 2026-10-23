@@ -6,7 +6,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { createReminder, deleteReminder, setReminderActive } from "@/lib/lembretes";
-import { addMaster, deleteNotice, getMaster, removeMaster, setFeedbackDone } from "@/lib/painel";
+import { addMaster, deleteNotice, getMaster, removeMaster, resetMasterPassword, setFeedbackDone } from "@/lib/painel";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { personView } from "@/lib/sales";
 import { cookies } from "next/headers";
@@ -198,5 +198,15 @@ export async function removeReminder(form: FormData) {
   const parsed = id.safeParse(form.get("id"));
   if (!parsed.success) return;
   await deleteReminder(parsed.data);
+  refresh();
+}
+
+/** Zera a senha de um master: no próximo acesso ele cria outra. */
+export async function resetMasterPasswordAction(form: FormData) {
+  await requireAdmin();
+  const parsed = id.safeParse(form.get("id"));
+  if (!parsed.success) return;
+  await resetMasterPassword(parsed.data);
+  console.info(`[admin] senha do master ${parsed.data} zerada`);
   refresh();
 }

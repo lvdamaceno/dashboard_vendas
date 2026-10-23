@@ -86,6 +86,7 @@ export interface Usage {
   masters: number;
   lembretes_ativos: number;
   fotos: number;
+  celulares: number;
 }
 
 const HOJE = `(date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')`;
@@ -107,7 +108,8 @@ export async function usageStats() {
        (SELECT count(DISTINCT codemp) FROM painel.meta WHERE mes = date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date)::int AS lojas_com_meta,
        (SELECT count(*) FROM painel.usuario_master)::int AS masters,
        (SELECT count(*) FROM painel.lembrete WHERE ativo)::int AS lembretes_ativos,
-       (SELECT count(*) FROM painel.foto)::int AS fotos`,
+       (SELECT count(*) FROM painel.foto)::int AS fotos,
+       (SELECT count(*) FROM painel.push_inscricao)::int AS celulares`,
   );
   return r;
 }
