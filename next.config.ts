@@ -31,8 +31,8 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // páginas com dados de vendas nunca devem ficar em cache
-        source: "/((?!_next/static).*)",
+        // páginas com dados de vendas nunca devem ficar em cache (as fotos da fila têm cache próprio, privado)
+        source: "/((?!_next/static|api/foto/).*)",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },
     ];

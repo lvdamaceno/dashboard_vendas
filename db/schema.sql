@@ -67,3 +67,25 @@ CREATE TABLE IF NOT EXISTS painel.telefone (
   autor_papel   text NOT NULL,
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );
+
+-- Fila de atendimento: uma por loja por dia. O "dia" da fila vira às 7h (horário de Brasília),
+-- então a fila zera sozinha às 7h sem tarefa agendada. Linhas antigas são apagadas aos poucos.
+CREATE TABLE IF NOT EXISTS painel.fila (
+  dia           date NOT NULL,
+  codemp        integer NOT NULL,
+  codvend       integer NOT NULL,
+  nome          text NOT NULL,
+  posicao       integer NOT NULL,
+  atendendo     boolean NOT NULL DEFAULT false,
+  entrou_em     timestamptz NOT NULL DEFAULT now(),
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (dia, codemp, codvend)
+);
+CREATE INDEX IF NOT EXISTS fila_loja_idx ON painel.fila (codemp, dia, posicao);
+
+-- Foto do vendedor na fila de atendimento (JPEG 256x256 reduzido no navegador, até 300 KB)
+CREATE TABLE IF NOT EXISTS painel.foto (
+  codvend       integer PRIMARY KEY,
+  dados         bytea NOT NULL CHECK (octet_length(dados) <= 307200),
+  atualizado_em timestamptz NOT NULL DEFAULT now()
+);

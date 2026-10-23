@@ -51,6 +51,7 @@ const SECTIONS = [
   ["gerentes", "Para gerentes"],
   ["cartao", "Cartão de visita (WhatsApp)"],
   ["avisos", "Avisos e sugestões"],
+  ["fila", "Fila de atendimento"],
   ["instalar", "Instalar no celular"],
   ["sair", "Sair e segurança"],
   ["duvidas", "Dúvidas frequentes"],
@@ -581,6 +582,33 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
         em <strong>Enviar</strong>.
       </p>
       <Tip>No erro, conte o que você estava fazendo e o que apareceu na tela. Isso ajuda a resolver mais rápido.</Tip>
+    </>,
+  ],
+  fila: [
+    <>
+      <p>
+        A <strong>fila de atendimento</strong> organiza quem atende o próximo cliente da loja. Toque no botão <strong>Fila</strong>, ao lado
+        dos períodos, para abrir.
+      </p>
+      <Steps>
+        <li>
+          Toque em <strong>Entrar na fila</strong>. Quem entrou primeiro atende primeiro: o primeiro da vez aparece como{" "}
+          <strong>Próximo a atender</strong>.
+        </li>
+        <li>
+          Quando for atender um cliente, toque em <strong>Atender cliente</strong>. Você vai para o fim da fila.
+        </li>
+        <li>
+          Ao terminar, toque em <strong>Terminei o atendimento</strong>. Você continua na fila, esperando a sua vez de novo.
+        </li>
+      </Steps>
+    </>,
+    <>
+      <Tip>A fila se atualiza sozinha em todos os celulares da loja. Todo dia às 7h ela começa vazia.</Tip>
+      <Tip>
+        Coloque a sua foto em <strong>Sua foto na fila</strong>, embaixo da lista: ela aparece ao lado do seu nome para a equipe.
+      </Tip>
+      <p>O gerente da loja também vê a fila e pode mudar a ordem quando precisar.</p>
     </>,
   ],
   instalar: [

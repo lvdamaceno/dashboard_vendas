@@ -325,8 +325,8 @@ export async function getTeamPhones(codemp?: number): Promise<TeamPhone[]> {
   return [...byCode.values()];
 }
 
-/** Loja (TGFVEN.CODEMP) de um vendedor ativo, ou null. */
-export async function vendorStore(codvend: number) {
-  const [r] = await query(`SELECT VEN.CODEMP FROM TGFVEN VEN WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`, { ttlMs: 0 });
+/** Loja (TGFVEN.CODEMP) de um vendedor ativo, ou null. ttlMs: 0 nas checagens de permissão. */
+export async function vendorStore(codvend: number, ttlMs = 0) {
+  const [r] = await query(`SELECT VEN.CODEMP FROM TGFVEN VEN WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`, { ttlMs });
   return r ? n(r.CODEMP) : null;
 }

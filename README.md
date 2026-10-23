@@ -158,6 +158,23 @@ log com o prefixo `[indicadores]`.
 | Indicadores por vendedor (gerente) | peças por atendimento, desconto e devolução (pelos itens) de cada vendedor |
 | Margem bruta (gerente) | (receita − custo) ÷ receita dos itens com custo; custo = registro mais recente de `TGFCUS` até a data da venda, na coluna `MARGEM_CUSTO` (padrão `CUSGER`). Avisa quando falta custo em mais de 5% da receita |
 
+## Fila de atendimento (`/fila`)
+
+Botão **Fila** ao lado dos filtros do painel. Uma fila por loja por dia, em `painel.fila`.
+
+- **Zera às 7h:** o "dia" da fila vira às 7h de Brasília (`now() - 7h`), então às 7h ela começa vazia sem tarefa
+  agendada; filas com mais de 7 dias são apagadas aos poucos.
+- **Só a própria loja:** a loja do vendedor é `TGFVEN.CODEMP` do seu código (a mesma regra da equipe do gerente),
+  sempre tirada da sessão; o vendedor não consegue ver nem entrar na fila de outra loja.
+- **Vendedor:** *Entrar na fila* → espera; o primeiro que está esperando aparece como **Próximo a atender**.
+  *Atender cliente* marca como atendendo e manda para o **fim da fila**; *Terminei o atendimento* volta a esperar
+  nessa posição. *Sair da fila* tira.
+- **Gerente da loja:** vê a fila, muda a ordem (↑ ↓) e tira alguém (×). Master e admin fazem o mesmo escolhendo a loja.
+- **Atualização:** a tela busca `/api/fila` a cada 4 s (só com a tela visível) e na hora depois de cada ação.
+- **Foto:** o vendedor envia a própria foto; o navegador recorta e reduz para JPEG 256×256 antes de enviar. O servidor
+  confere que é JPEG (pelo conteúdo) e aceita até 300 KB. Fica em `painel.foto`, **uma por vendedor**: a nova substitui
+  a anterior. Servida em `/api/foto/<codvend>` só para quem está logado.
+
 ## Avisos, sugestões e admin
 
 Ficam no Postgres `loja-casacontente-db` (o mesmo da nova loja, para não criar mais um banco), no schema
@@ -172,6 +189,8 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `aviso_visto` | Última vez que cada usuário abriu o sino (marca os novos) |
 | `feedback` | Sugestões e erros, com status concluído |
 | `telefone` | Telefone do cartão salvo pelo app, por `CODVEND`; tem prioridade sobre o do Sankhya |
+| `fila` | Fila de atendimento por loja e dia (zera às 7h) |
+| `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |
 | `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |
 
 - **Sino** (canto superior esquerdo): bolinha amarela quando há aviso novo. Vendedor e gerente veem os avisos de todas as
@@ -208,5 +227,7 @@ src/lib/db.ts                Postgres do painel (pool pequeno)
 src/lib/painel.ts            masters, avisos e sugestões
 src/app/painel-actions.ts    enviar aviso / sugestão (Server Actions)
 src/app/admin/               área de admin (login, abas, ações)
+src/app/fila/                fila de atendimento (tela, ações, foto)
+src/lib/fila.ts              fila e fotos no Postgres
 db/schema.sql                tabelas do schema painel
 ```

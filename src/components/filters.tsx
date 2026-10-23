@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Preset } from "@/lib/period";
@@ -97,11 +98,22 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
             );
           })}
         </div>
-        {showCard && (
-          <div className="flex md:order-last md:ml-auto">
-            <BusinessCard />
-          </div>
-        )}
+        <div className="flex gap-2 md:order-last md:ml-auto">
+          <Link
+            href={loja ? `/fila?loja=${loja}` : "/fila"}
+            aria-label="Fila de atendimento"
+            className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+          >
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+              <circle cx="6" cy="8" r="2.2" />
+              <circle cx="12" cy="8" r="2.2" />
+              <circle cx="18" cy="8" r="2.2" />
+              <path d="M3 18c0-2 1.3-3.5 3-3.5S9 16 9 18M9 18c0-2 1.3-3.5 3-3.5s3 1.5 3 3.5M15 18c0-2 1.3-3.5 3-3.5s3 1.5 3 3.5" strokeLinecap="round" />
+            </svg>
+            <span className="hidden sm:inline">Fila</span>
+          </Link>
+          {showCard && <BusinessCard />}
+        </div>
       </div>
 
       {custom && (
