@@ -574,8 +574,9 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     </>,
     <>
       <p>
-        No fim do painel tem o botão <strong>Enviar sugestão ou erro</strong>. Use para pedir uma melhoria ou contar algo que não
-        funcionou: escolha <strong>Sugestão</strong> ou <strong>Erro</strong>, escreva e toque em <strong>Enviar</strong>.
+        No canto de baixo, à direita, fica um botão redondo com um balãozinho: é o de <strong>Sugestões e erros</strong>. Use para
+        pedir uma melhoria ou contar algo que não funcionou: escolha <strong>Sugestão</strong> ou <strong>Erro</strong>, escreva e toque
+        em <strong>Enviar</strong>.
       </p>
       <Tip>No erro, conte o que você estava fazendo e o que apareceu na tela. Isso ajuda a resolver mais rápido.</Tip>
     </>,

@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { FeedbackButton } from "@/components/feedback-button";
 import { Filters } from "@/components/filters";
 import { KpiCard } from "@/components/kpi-card";
 import { LostClients } from "@/components/lost-clients";
@@ -65,7 +64,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   let team: Awaited<ReturnType<typeof getTeam>>;
   let insights: Insights;
   try {
-    [data, team, insights] = await Promise.all([getDashboardData(view, period, vendedor), getTeam(view), getInsights(view, period, vendedor)]);
+    [data, team, insights] = await Promise.all([getDashboardData(view, period, vendedor), getTeam(view, period, vendedor), getInsights(view, period, vendedor)]);
   } catch (err) {
     if (err instanceof SankhyaError && err.code === "SESSION_EXPIRED") redirect("/sessao-expirada");
     console.error("[dashboard]", err);
@@ -156,7 +155,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <KpiCard label="Clientes" value={number(atual.clientes)} current={atual.clientes} previous={anterior.clientes} prevLabel={period.prevLabel} />
       </div>
 
-      <div className={`grid grid-cols-2 gap-3 ${margem ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+      {/* Quantidade varia (cada indicador some se a consulta falhar): dividem a linha por igual, 2 por linha no celular */}
+      <div className="flex flex-wrap gap-3 *:min-w-0 *:flex-1 *:basis-[calc(50%-0.375rem)] lg:flex-nowrap lg:*:basis-0">
         {itens && (
           <>
             <KpiCard
@@ -200,7 +200,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         )}
         {margem && (
           <KpiCard
-            className="col-span-2 lg:col-span-1"
             label="Margem bruta"
             value={percent(margemPct(margem.atual))}
             current={margemPct(margem.atual)}
@@ -307,8 +306,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       {insights.sumidos && <LostClients clientes={insights.sumidos} />}
 
       <OrdersTable pedidos={data.pedidos} showVendedor={isManager} />
-
-      <FeedbackButton />
     </Shell>
   );
 }

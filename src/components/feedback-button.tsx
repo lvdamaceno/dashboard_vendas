@@ -3,20 +3,27 @@
 import { useActionState, useRef } from "react";
 import { sendFeedback, type FormState } from "@/app/painel-actions";
 
-/** Botão para o usuário mandar sugestões ou relatar erros; chegam no painel do admin. */
+/** Botão flutuante para o usuário mandar sugestões ou relatar erros; chegam no painel do admin. */
 export function FeedbackButton() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, action, pending] = useActionState<FormState, FormData>(sendFeedback, {});
 
   return (
-    <section className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-line px-5 py-5 text-center sm:flex-row sm:text-left">
-      <p className="flex-1 text-sm text-ink-2">Tem uma ideia para o painel ou encontrou algo errado?</p>
+    <>
+      {/* Fixo no canto inferior direito; discreto até passar o mouse (no celular, só o ícone) */}
       <button
         type="button"
         onClick={() => dialog.current?.showModal()}
-        className="h-11 shrink-0 rounded-full border border-line bg-surface px-5 font-title text-sm font-medium text-accent hover:bg-bg-alt md:h-10"
+        aria-label="Enviar sugestão ou erro"
+        className="group fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 flex h-11 items-center rounded-full border border-line bg-surface/90 px-3 text-ink-3 opacity-80 shadow-md backdrop-blur transition hover:text-accent hover:opacity-100 focus-visible:text-accent focus-visible:opacity-100"
       >
-        Enviar sugestão ou erro
+        <svg viewBox="0 0 24 24" className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+          <path d="M4 5h16v11H9l-5 4V5Z" strokeLinejoin="round" />
+          <path d="M8 9.5h8M8 12.5h5" strokeLinecap="round" />
+        </svg>
+        <span className="max-w-0 overflow-hidden font-title text-sm font-medium whitespace-nowrap transition-all duration-300 group-hover:ml-2 group-hover:max-w-48 group-focus-visible:ml-2 group-focus-visible:max-w-48">
+          Sugestões e erros
+        </span>
       </button>
 
       <dialog
@@ -88,6 +95,6 @@ export function FeedbackButton() {
           </form>
         )}
       </dialog>
-    </section>
+    </>
   );
 }

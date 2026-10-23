@@ -3,6 +3,7 @@ import { logout } from "@/app/actions";
 import { stopViewAs } from "@/app/admin/actions";
 import type { Notice } from "@/lib/painel";
 import type { Session } from "@/lib/session";
+import { FeedbackButton } from "./feedback-button";
 import { Logo } from "./logo";
 import { NoticeBell } from "./notice-bell";
 
@@ -20,10 +21,12 @@ interface Props {
   stores?: { codigo: number; nome: string }[];
   /** Texto abaixo do nome (padrão: papel e loja) */
   scope?: string;
+  /** Botão flutuante de sugestões e erros (desligado na área de admin) */
+  feedback?: boolean;
   children: React.ReactNode;
 }
 
-export function Shell({ session, notices, stores = [], scope, children }: Props) {
+export function Shell({ session, notices, stores = [], scope, feedback = true, children }: Props) {
   const como = session.role === "admin" ? session.como : undefined;
   const nomeLoja = (codemp: number) => stores.find((s) => s.codigo === codemp)?.nome;
 
@@ -78,7 +81,9 @@ export function Shell({ session, notices, stores = [], scope, children }: Props)
           </form>
         </div>
       )}
-      <main className="mx-auto max-w-6xl space-y-3 px-4 py-4 md:space-y-4 md:py-6">{children}</main>
+      {/* pb-20: o fim da página não fica escondido atrás do botão flutuante */}
+      <main className={`mx-auto max-w-6xl space-y-3 px-4 pt-4 md:space-y-4 md:pt-6 ${feedback ? "pb-20" : "pb-4 md:pb-6"}`}>{children}</main>
+      {feedback && <FeedbackButton />}
     </div>
   );
 }

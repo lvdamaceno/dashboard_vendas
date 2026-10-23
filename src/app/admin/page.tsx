@@ -58,7 +58,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
   const pending = await countPendingFeedback().catch(() => 0);
 
   return (
-    <Shell session={session} scope="Administração">
+    <Shell session={session} scope="Administração" feedback={false}>
       <h1 className="text-2xl">Administração</h1>
       <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="Seções">
         {TABS.map((t) => (

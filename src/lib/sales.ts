@@ -189,13 +189,20 @@ export async function getDashboardData(session: Session, period: Period, vendedo
   };
 }
 
-/** Vendedores que o gerente pode filtrar (dentro do seu escopo); para master/admin, os da loja escolhida. */
-export async function getTeam(session: Session) {
+/**
+ * Vendedores para o filtro do gerente (e de master/admin com loja escolhida): só os da
+ * mesma loja (TGFVEN.CODEMP) que tiveram venda ou devolução no período. O vendedor já
+ * selecionado continua na lista, para a caixa não ficar em branco.
+ */
+export async function getTeam(session: Session, period: Period, vendedor?: number) {
   if (!isManagerial(session) || !session.codemp) return [];
-  const equipe = session.role === "gerente" ? ` OR VEN.CODGER = ${int(session.codvend)}` : "";
+  const selected = vendedor ? ` OR VEN.CODVEND = ${int(vendedor)}` : "";
   const rows = await query(
     `SELECT VEN.CODVEND, VEN.APELIDO FROM TGFVEN VEN
-      WHERE VEN.ATIVO = 'S' AND (VEN.CODEMP = ${int(session.codemp)}${equipe})
+      WHERE VEN.CODEMP = ${int(session.codemp)}
+        AND (EXISTS (SELECT 1 FROM TGFCAB CAB
+                     ${salesWhere(session, period.from, period.to)}
+                       AND CAB.CODVEND = VEN.CODVEND)${selected})
       ORDER BY VEN.APELIDO`,
   );
   return rows.map((r) => ({ codigo: n(r.CODVEND), nome: s(r.APELIDO) }));

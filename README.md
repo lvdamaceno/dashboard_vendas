@@ -59,7 +59,7 @@ Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAu
 | Perfil | Vê |
 |---|---|
 | Vendedor | apenas `TGFCAB.CODVEND = seu código`. Parâmetros na URL são ignorados. |
-| Gerente | as vendas da sua loja: `TGFCAB.CODEMP` = empresa do gerente em `TGFVEN`. O filtro lista os vendedores ativos da loja e da equipe (`CODGER`). |
+| Gerente | as vendas da sua loja: `TGFCAB.CODEMP` = empresa do gerente em `TGFVEN`. O filtro lista só os vendedores da mesma loja (`TGFVEN.CODEMP`) com venda ou devolução no período. |
 | Master (diretoria) | todas as lojas, com ranking de lojas; pode escolher uma loja (`?loja=`) e um vendedor dela. CPFs cadastrados pelo admin. |
 | Admin | tudo o que o master vê, a área `/admin` e o painel de qualquer vendedor ou gerente, escolhido pelo nome. |
 
@@ -158,7 +158,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 - **Sino** (canto superior esquerdo): bolinha amarela quando há aviso novo. Vendedor e gerente veem os avisos de todas as
   lojas e os da sua loja; o **gerente** envia para a própria loja; **master** e **admin** veem todos e enviam para uma loja
   ou para todas.
-- **Sugestões e erros**: botão no fim do painel. Guarda a página e o navegador para ajudar a reproduzir.
+- **Sugestões e erros**: botão flutuante discreto no canto inferior direito (abre o texto ao passar o mouse). Guarda a página e o navegador para ajudar a reproduzir.
 - **Admin** (`/admin/login`, usuário e senha em `ADMIN_USER`/`ADMIN_PASSWORD`; sem os dois o acesso fica desligado):
   sugestões e erros (concluir/reabrir e **Criar issue no GitHub**, que abre o formulário de issue já preenchido em
   `GITHUB_REPO` — o repositório é público, então vai só a mensagem, sem o nome de quem enviou), avisos (enviar e apagar),
