@@ -45,6 +45,12 @@ export function userKey(s: Session) {
 const isProd = process.env.NODE_ENV === "production";
 export const SESSION_COOKIE = isProd ? "__Host-dv_session" : "dv_session";
 
+/**
+ * Opções para apagar o cookie de sessão. O prefixo __Host- exige Secure e Path=/ também
+ * na exclusão; sem isso o navegador ignora e a pessoa continua logada depois de sair.
+ */
+export const CLEAR_SESSION_COOKIE = { name: SESSION_COOKIE, value: "", httpOnly: true, secure: isProd, sameSite: "lax", path: "/", maxAge: 0 } as const;
+
 let keyPromise: Promise<Uint8Array> | undefined;
 
 // Deriva uma chave de 256 bits a partir do segredo configurado
@@ -92,5 +98,5 @@ export async function createSession(session: Session) {
 
 export async function destroySession() {
   const store = await cookies();
-  store.delete(SESSION_COOKIE);
+  store.set(CLEAR_SESSION_COOKIE);
 }

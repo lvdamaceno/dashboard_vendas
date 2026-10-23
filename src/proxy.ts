@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { decryptSession, SESSION_COOKIE } from "@/lib/session";
+import { CLEAR_SESSION_COOKIE, decryptSession, SESSION_COOKIE } from "@/lib/session";
 
 // Barreira inicial: sem sessão válida, nada além do login é acessível.
 // As páginas revalidam a sessão por conta própria (defesa em profundidade).
@@ -19,7 +19,7 @@ export async function proxy(request: NextRequest) {
   if (isAdminArea && session?.role !== "admin") return NextResponse.rewrite(new URL("/admin/login", request.url));
   if (!session) {
     const res = NextResponse.redirect(new URL("/login", request.url));
-    res.cookies.delete(SESSION_COOKIE);
+    res.cookies.set(CLEAR_SESSION_COOKIE);
     return res;
   }
   return NextResponse.next();
