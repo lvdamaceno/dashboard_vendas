@@ -160,10 +160,12 @@ log com o prefixo `[indicadores]`.
 
 ## Metas (`/metas`) e feriados (`/feriados`)
 
-Master e admin informam, por loja e mês, a **meta geral da loja** e a **meta individual** de cada vendedor ativo
-(`painel.meta`; `codvend` 0 = loja). A meta é de **faturamento líquido** (o mesmo número do painel). Botão para
-**copiar as metas do mês anterior** (de uma loja ou de todas), sem sobrescrever o que já foi preenchido e só para
-vendedores que continuam ativos.
+Master e admin informam, numa tela só com todas as lojas do mês, **dois valores por loja**: a **meta da loja** e a
+**meta por vendedor** (a mesma para cada pessoa considerada). Em cada loja marcam as **pessoas consideradas**: as
+candidatas são quem vendeu ali nos últimos 90 dias (o cadastro de vendedores do Sankhya tem caixas e códigos internos, e
+há quem venda em mais de uma loja); cada pessoa conta em uma loja só. A meta individual de uma pessoa é medida pelas vendas
+dela **na loja em que foi considerada**. Botão para **copiar as metas e as pessoas do mês anterior**, sem sobrescrever
+o que já foi preenchido. Tabelas `painel.meta` (`codvend` 0 = loja, -1 = por vendedor) e `painel.meta_pessoa`.
 
 **Metas diárias** (`src/lib/goal-progress.ts`):
 
@@ -174,7 +176,8 @@ vendedores que continuam ativos.
 - projeção = vendido ÷ dias úteis decorridos × dias úteis do mês.
 
 No painel aparecem **Meta do mês** e **Meta de hoje** (do vendedor, da loja para o gerente ou da loja/todas para
-master e admin; com filtro de vendedor, a meta dele) e a lista **Metas da equipe** (por vendedor) ou **Metas por loja**.
+master e admin; com filtro de vendedor, a meta dele) e a lista **Metas da equipe** (as pessoas consideradas) ou
+**Metas por loja**.
 Valem sempre para o mês atual, qualquer que seja o período escolhido.
 
 **Dias úteis** (`src/lib/workdays.ts`): dias da semana em `META_DIAS_SEMANA` (padrão segunda a sábado), menos os
@@ -222,7 +225,8 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `aviso_visto` | Última vez que cada usuário abriu o sino (marca os novos) |
 | `feedback` | Sugestões e erros, com status concluído |
 | `telefone` | Telefone do cartão salvo pelo app, por `CODVEND`; tem prioridade sobre o do Sankhya |
-| `meta` | Metas mensais por loja (`codvend` 0) e por vendedor |
+| `meta` | Metas mensais por loja: `codvend` 0 = meta da loja, -1 = meta por vendedor |
+| `meta_pessoa` | Pessoas consideradas na meta individual de cada loja no mês (uma loja por pessoa) |
 | `feriado` | Feriados criados e dias em que a loja abre num feriado (ajustes do calendário) |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |

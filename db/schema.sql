@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS painel.foto (
 );
 
 -- Metas mensais de faturamento líquido, informadas por master e admin.
--- codvend 0 = meta geral da loja; > 0 = meta individual do vendedor (TGFVEN.CODVEND) naquela loja.
+-- codvend 0 = meta geral da loja; -1 = meta individual, a mesma para cada vendedor ativo da loja.
 CREATE TABLE IF NOT EXISTS painel.meta (
   mes           date NOT NULL CHECK (extract(day FROM mes) = 1),
   codemp        integer NOT NULL,
@@ -112,3 +112,14 @@ CREATE TABLE IF NOT EXISTS painel.feriado (
   autor_nome    text NOT NULL,
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );
+
+-- Pessoas consideradas na meta individual de cada loja no mês (uma loja por pessoa por mês).
+-- A meta individual (codvend -1 em painel.meta) vale para cada uma delas.
+CREATE TABLE IF NOT EXISTS painel.meta_pessoa (
+  mes     date NOT NULL CHECK (extract(day FROM mes) = 1),
+  codvend integer NOT NULL,
+  codemp  integer NOT NULL,
+  nome    text NOT NULL,
+  PRIMARY KEY (mes, codvend)
+);
+CREATE INDEX IF NOT EXISTS meta_pessoa_loja_idx ON painel.meta_pessoa (mes, codemp);

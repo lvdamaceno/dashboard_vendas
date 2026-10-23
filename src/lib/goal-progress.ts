@@ -1,8 +1,8 @@
 import "server-only";
 import { monthWorkdays } from "./feriados";
-import { listGoals } from "./metas";
+import { listGoalPeople, listGoals } from "./metas";
 import { todayIso } from "./period";
-import { getStoreVendors, salesByStoreAndVendor } from "./sales";
+import { salesByStoreAndVendor } from "./sales";
 import type { Session } from "./session";
 
 /**
@@ -43,12 +43,14 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
   const loja = view.codemp;
   const allStores = (view.role === "master" || view.role === "admin") && !loja;
 
-  const [calendario, metas, vendas] = await Promise.all([
+  const [calendario, metas, pessoas, vendas] = await Promise.all([
     monthWorkdays(mes),
     listGoals(`${mes}-01`, view.role === "vendedor" || allStores ? undefined : loja),
+    // Quem conta na meta individual de cada loja (marcado em /metas)
+    listGoalPeople(`${mes}-01`),
     salesByStoreAndVendor(view, `${mes}-01`, today),
   ]);
-  if (!metas.length || !calendario.dias.length) return null;
+  if (!metas.size || !calendario.dias.length) return null;
 
   const n = calendario.dias.length;
   const passados = calendario.dias.filter((d) => d < today).length;
@@ -71,54 +73,59 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
     };
   };
   const sum = (rows: typeof vendas) => ({ total: rows.reduce((a, r) => a + r.total, 0), hoje: rows.reduce((a, r) => a + r.hoje, 0) });
+  const byRatio = (a: GoalLine, b: GoalLine) => b.realizado / b.meta - a.realizado / a.meta;
   const base = { mes, diasUteis: n, restantes: n - decorridos, hojeUtil };
 
-  // Vendedor: a própria meta (a consulta já vem só com as vendas dele)
+  // Vendedor: a meta individual da loja em que foi considerado, com as vendas dele nessa loja
   if (view.role === "vendedor") {
-    const meta = metas.filter((m) => m.codvend === view.codvend).reduce((a, m) => a + m.valor, 0);
-    if (!meta) return null;
-    const s = sum(vendas);
+    const eu = pessoas.find((p) => p.codvend === view.codvend);
+    const meta = eu ? metas.get(eu.codemp)?.vendedor : null;
+    if (!eu || !meta) return null;
+    const s = sum(vendas.filter((v) => v.codemp === eu.codemp));
     return { ...base, principal: line(view.codvend, view.apelido, meta, s.total, s.hoje), detalhe: null };
   }
 
-  // Todas as lojas: soma das metas gerais, com o detalhe por loja
+  // Todas as lojas: soma das metas das lojas, com o detalhe por loja
   if (allStores) {
-    const gerais = metas.filter((m) => m.codvend === 0);
-    if (!gerais.length) return null;
-    const s = sum(vendas);
-    const linhas = gerais
-      .map((m) => {
-        const t = sum(vendas.filter((v) => v.codemp === m.codemp));
-        return line(m.codemp, stores.find((x) => x.codigo === m.codemp)?.nome ?? `Loja ${m.codemp}`, m.valor, t.total, t.hoje);
+    const linhas = [...metas]
+      .filter(([, g]) => g.loja)
+      .map(([codemp, g]) => {
+        const t = sum(vendas.filter((v) => v.codemp === codemp));
+        return line(codemp, stores.find((x) => x.codigo === codemp)?.nome ?? `Loja ${codemp}`, g.loja!, t.total, t.hoje);
       })
-      .sort((a, b) => b.realizado / b.meta - a.realizado / a.meta);
-    const meta = gerais.reduce((a, m) => a + m.valor, 0);
+      .sort(byRatio);
+    if (!linhas.length) return null;
+    const s = sum(vendas);
+    const meta = linhas.reduce((a, l) => a + l.meta, 0);
     return { ...base, principal: line(0, "Todas as lojas", meta, s.total, s.hoje), detalhe: { titulo: "Metas por loja", linhas } };
   }
 
   // Uma loja (gerente, ou master/admin com loja escolhida)
-  const nomes = await getStoreVendors(loja).catch(() => []);
-  const nome = (codvend: number) => nomes.find((v) => v.codvend === codvend)?.nome ?? `Vendedor ${codvend}`;
-  const individuais = metas
-    .filter((m) => m.codvend > 0)
-    .map((m) => {
-      const t = sum(vendas.filter((v) => v.codvend === m.codvend));
-      return line(m.codvend, nome(m.codvend), m.valor, t.total, t.hoje);
-    })
-    .sort((a, b) => b.realizado / b.meta - a.realizado / a.meta);
+  const metaLoja = metas.get(loja);
+  if (!metaLoja) return null;
+  const porVendedor = metaLoja.vendedor;
+  // Pessoas marcadas nesta loja, com as vendas delas aqui
+  const individuais = porVendedor
+    ? pessoas
+        .filter((p) => p.codemp === loja)
+        .map((p) => {
+          const t = sum(vendas.filter((x) => x.codvend === p.codvend));
+          return line(p.codvend, p.nome, porVendedor, t.total, t.hoje);
+        })
+        .sort(byRatio)
+    : [];
 
   if (vendedor) {
     const propria = individuais.find((l) => l.chave === vendedor);
     return propria ? { ...base, principal: propria, detalhe: null } : null;
   }
-  const geral = metas.find((m) => m.codvend === 0);
   const s = sum(vendas);
-  const principal = geral ? line(0, "Loja", geral.valor, s.total, s.hoje) : null;
-  if (!principal && !individuais.length) return null;
+  // Sem meta da loja, o resumo usa a soma das metas dos vendedores
+  const metaTotal = metaLoja.loja ?? individuais.reduce((a, l) => a + l.meta, 0);
+  if (!metaTotal) return null;
   return {
     ...base,
-    // Sem meta geral, o resumo soma as metas individuais
-    principal: principal ?? line(0, "Equipe", individuais.reduce((a, l) => a + l.meta, 0), s.total, s.hoje),
+    principal: line(0, "Loja", metaTotal, s.total, s.hoje),
     detalhe: individuais.length ? { titulo: "Metas da equipe", linhas: individuais } : null,
   };
 }

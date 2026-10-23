@@ -1,41 +1,66 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { insertMissingGoals, listGoals, saveGoals } from "@/lib/metas";
+import { copyGoals, listGoalPeople, META_LOJA, META_VENDEDOR, saveGoalPeople, saveGoals, type GoalPerson } from "@/lib/metas";
 import { parseMoney } from "@/lib/money-input";
-import { getStoreVendors } from "@/lib/sales";
+import { getStores, salesPeopleByStore } from "@/lib/sales";
 import { getSession } from "@/lib/session";
 
 export type GoalsState = { ok?: boolean; error?: string };
 
 const MAX = 1_000_000_000;
+const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-/** Master e admin gravam as metas de uma loja no mês: meta_loja e meta_<codvend>; campo vazio apaga. */
-export async function saveGoalsAction(_prev: GoalsState, form: FormData): Promise<GoalsState> {
+async function requireGoalManager() {
   const session = await getSession();
-  if (session?.role !== "master" && session?.role !== "admin") return { error: "Só a diretoria e o admin definem metas." };
+  return session?.role === "master" || session?.role === "admin" ? session : null;
+}
 
-  const codemp = Number(form.get("loja"));
+/**
+ * Grava as metas do mês de todas as lojas: loja_<codemp> e vendedor_<codemp> (campo vazio apaga) e as pessoas
+ * consideradas (pessoa_<codemp> = códigos marcados; cada pessoa só em uma loja).
+ */
+export async function saveGoalsAction(_prev: GoalsState, form: FormData): Promise<GoalsState> {
+  const session = await requireGoalManager();
+  if (!session) return { error: "Só a diretoria e o admin definem metas." };
   const mesTxt = String(form.get("mes") ?? "");
-  if (!Number.isSafeInteger(codemp) || codemp <= 0 || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mesTxt)) return { error: "Loja ou mês inválido." };
-  const mes = `${mesTxt}-01`;
+  if (!MES.test(mesTxt)) return { error: "Mês inválido." };
 
   try {
-    // Só aceita metas individuais de vendedores ativos daquela loja
-    const vendedores = await getStoreVendors(codemp);
-    const entries: { codvend: number; valor: number | null }[] = [];
-    for (const codvend of [0, ...vendedores.map((v) => v.codvend)]) {
-      const field = form.get(codvend ? `meta_${codvend}` : "meta_loja");
-      if (field === null) continue;
-      const valor = parseMoney(String(field));
-      if (valor !== null && (Number.isNaN(valor) || valor <= 0 || valor > MAX)) {
-        const nome = codvend ? vendedores.find((v) => v.codvend === codvend)?.nome : "da loja";
-        return { error: `Valor inválido na meta ${codvend ? `de ${nome}` : nome}. Use, por exemplo, 150.000,00.` };
+    // Só aceita as lojas que existem (TSIEMP com vendedor ativo)
+    const [stores, candidatos, atuais] = await Promise.all([getStores(), salesPeopleByStore(), listGoalPeople(`${mesTxt}-01`)]);
+    // Nome de cada código possível (quem vendeu recentemente ou já estava na lista)
+    const nomes = new Map<number, string>([...atuais.map((p) => [p.codvend, p.nome] as const), ...candidatos.map((c) => [c.codvend, c.nome] as const)]);
+    const pessoas: GoalPerson[] = [];
+    const lojasComLista: number[] = [];
+    const entries: { codemp: number; codvend: number; valor: number | null }[] = [];
+    for (const s of stores) {
+      for (const [campo, codvend, rotulo] of [
+        [`loja_${s.codigo}`, META_LOJA, "da loja"],
+        [`vendedor_${s.codigo}`, META_VENDEDOR, "por vendedor"],
+      ] as const) {
+        const field = form.get(campo);
+        if (field === null) continue;
+        const valor = parseMoney(String(field));
+        if (valor !== null && (Number.isNaN(valor) || valor <= 0 || valor > MAX)) {
+          return { error: `Valor inválido na meta ${rotulo} de ${s.nome}. Use, por exemplo, 150.000,00.` };
+        }
+        entries.push({ codemp: s.codigo, codvend, valor });
       }
-      entries.push({ codvend, valor });
+      if (form.get(`pessoas_${s.codigo}`) === null) continue;
+      lojasComLista.push(s.codigo);
+      for (const raw of form.getAll(`pessoa_${s.codigo}`)) {
+        const codvend = Number(raw);
+        const nome = nomes.get(codvend);
+        if (!Number.isSafeInteger(codvend) || !nome) continue;
+        const outra = pessoas.find((p) => p.codvend === codvend);
+        if (outra) return { error: `${nome} está marcado em duas lojas. Cada pessoa conta em uma loja só.` };
+        pessoas.push({ codemp: s.codigo, codvend, nome });
+      }
     }
-    await saveGoals(mes, codemp, entries, session.nome || session.apelido);
-    console.info(`[metas] ${session.apelido} (${session.role}) gravou metas da loja ${codemp} em ${mesTxt}`);
+    await saveGoals(`${mesTxt}-01`, entries, session.nome || session.apelido);
+    await saveGoalPeople(`${mesTxt}-01`, lojasComLista, pessoas);
+    console.info(`[metas] ${session.apelido} (${session.role}) gravou as metas de ${mesTxt}`);
   } catch (err) {
     console.error("[metas] erro ao gravar:", err instanceof Error ? err.message : err);
     return { error: "Não foi possível salvar as metas. Tente novamente." };
@@ -44,34 +69,21 @@ export async function saveGoalsAction(_prev: GoalsState, form: FormData): Promis
   return { ok: true };
 }
 
-/** Mês anterior de AAAA-MM. */
 function previousMonth(mes: string) {
   const [y, m] = mes.split("-").map(Number);
   return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
 }
 
-/**
- * Copia as metas do mês anterior para o mês escolhido (de uma loja ou de todas). Metas individuais só de
- * vendedores que continuam ativos na loja; o que já foi preenchido no mês não é sobrescrito.
- */
+/** Copia as metas do mês anterior (todas as lojas), sem sobrescrever o que já foi preenchido. */
 export async function copyGoalsAction(_prev: GoalsState, form: FormData): Promise<GoalsState> {
-  const session = await getSession();
-  if (session?.role !== "master" && session?.role !== "admin") return { error: "Só a diretoria e o admin definem metas." };
-
+  const session = await requireGoalManager();
+  if (!session) return { error: "Só a diretoria e o admin definem metas." };
   const mesTxt = String(form.get("mes") ?? "");
-  const lojaRaw = Number(form.get("loja") || 0);
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mesTxt) || !Number.isSafeInteger(lojaRaw) || lojaRaw < 0) return { error: "Mês ou loja inválidos." };
-  const loja = lojaRaw || undefined;
-
+  if (!MES.test(mesTxt)) return { error: "Mês inválido." };
   try {
-    const anteriores = await listGoals(`${previousMonth(mesTxt)}-01`, loja);
-    if (!anteriores.length) return { error: "O mês anterior não tem metas para copiar." };
-    const lojas = [...new Set(anteriores.map((g) => g.codemp))];
-    const ativos = new Map(await Promise.all(lojas.map(async (c) => [c, new Set((await getStoreVendors(c)).map((v) => v.codvend))] as const)));
-    const copiar = anteriores.filter((g) => g.codvend === 0 || ativos.get(g.codemp)?.has(g.codvend));
-    const copiadas = await insertMissingGoals(`${mesTxt}-01`, copiar, session.nome || session.apelido);
-    console.info(`[metas] ${session.apelido} copiou ${copiadas} metas de ${previousMonth(mesTxt)} para ${mesTxt}${loja ? ` (loja ${loja})` : ""}`);
-    if (!copiadas) return { error: "Nada novo para copiar: este mês já tem essas metas preenchidas." };
+    const copiadas = await copyGoals(`${previousMonth(mesTxt)}-01`, `${mesTxt}-01`, session.nome || session.apelido);
+    console.info(`[metas] ${session.apelido} copiou ${copiadas} metas de ${previousMonth(mesTxt)} para ${mesTxt}`);
+    if (!copiadas) return { error: "Nada para copiar: o mês anterior não tem metas ou este mês já está preenchido." };
   } catch (err) {
     console.error("[metas] erro ao copiar:", err instanceof Error ? err.message : err);
     return { error: "Não foi possível copiar as metas. Tente novamente." };

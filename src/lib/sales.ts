@@ -1,7 +1,7 @@
 import "server-only";
 import { env } from "./env";
+import { addDays as addDaysIso, todayIso, type Period } from "./period";
 import { normalizePhone } from "./phone";
-import type { Period } from "./period";
 import { isManagerial, type Session } from "./session";
 import { query } from "./sankhya/client";
 import { date, dayKey, inList, int, limit } from "./sankhya/sql";
@@ -359,4 +359,22 @@ export async function salesByStoreAndVendor(session: Session, from: string, toda
       GROUP BY CAB.CODEMP, CAB.CODVEND`,
   );
   return rows.map((r) => ({ codemp: n(r.CODEMP), codvend: n(r.CODVEND), total: n(r.TOTAL), hoje: n(r.HOJE) }));
+}
+
+/**
+ * Quem vendeu em cada loja nos últimos dias (candidatos às "pessoas consideradas" das metas). O cadastro de
+ * vendedores (TGFVEN) tem caixas e códigos internos; quem realmente vende aparece nas notas. Só master e admin usam.
+ */
+export async function salesPeopleByStore(days = 90) {
+  const today = todayIso();
+  const rows = await query(
+    `SELECT CAB.CODEMP, VEN.CODVEND, VEN.APELIDO, COUNT(*) AS NOTAS
+       FROM TGFCAB CAB
+       JOIN TGFVEN VEN ON VEN.CODVEND = CAB.CODVEND AND VEN.ATIVO = 'S'
+      WHERE ${isVenda()} AND ${serieValida("CAB")} AND CAB.DTNEG >= ${date(addDaysIso(today, -days))}
+      GROUP BY CAB.CODEMP, VEN.CODVEND, VEN.APELIDO
+      ORDER BY CAB.CODEMP, NOTAS DESC`,
+    { ttlMs: 10 * 60_000 },
+  );
+  return rows.map((r) => ({ codemp: n(r.CODEMP), codvend: n(r.CODVEND), nome: s(r.APELIDO), notas: n(r.NOTAS) }));
 }
