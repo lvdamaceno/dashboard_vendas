@@ -5,7 +5,6 @@ import { KpiCard } from "@/components/kpi-card";
 import { OrdersTable } from "@/components/orders-table";
 import { pedidosLabel, RankList } from "@/components/rank-list";
 import { SalesChart } from "@/components/sales-chart";
-import { env } from "@/lib/env";
 import { money, number } from "@/lib/format";
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
 import { getDashboardData, getTeam, type DashboardData } from "@/lib/sales";
@@ -148,12 +147,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 }
 
 function Shell({ session, children }: { session: NonNullable<Awaited<ReturnType<typeof getSession>>>; children: React.ReactNode }) {
-  const scope =
-    session.role === "gerente"
-      ? env().MANAGER_SCOPE === "empresa"
-        ? `Gerente · Empresa ${session.codemp}`
-        : "Gerente · Equipe"
-      : `Vendedor · ${session.codvend}`;
+  const scope = session.role === "gerente" ? `Gerente · Loja ${session.codemp}` : `Vendedor · ${session.codvend}`;
 
   return (
     <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">

@@ -41,7 +41,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   try {
     const profile = await fetchProfile(cpf);
     await createSession(profile);
-    console.info(`[login] ok ${profile.nome} — ${profile.role}, vendedor ${profile.codvend}, empresa ${profile.codemp ?? "-"}`);
+    console.info(`[login] ok ${profile.nome} — ${profile.role}, vendedor ${profile.codvend}, empresa ${profile.codemp}`);
   } catch (err) {
     if (err instanceof ProfileError) {
       console.warn(`[login] ${masked(cpf)} sem acesso: ${err.message} (ip ${ip})`);
@@ -80,7 +80,7 @@ export async function getBusinessCard(): Promise<BusinessCard> {
   if (!session) return { ok: false, error: "Sessão expirada. Entre novamente." };
 
   try {
-    const contact = await fetchContact(session.codusu);
+    const contact = await fetchContact(session.codemp, session.codfunc);
     const whatsapp = contact.telefone ? `https://wa.me/55${contact.telefone}` : null;
     return {
       ok: true,
@@ -93,7 +93,7 @@ export async function getBusinessCard(): Promise<BusinessCard> {
         : null,
     };
   } catch (err) {
-    console.error(`[cartao] erro ao carregar contato do usuário ${session.codusu}:`, err instanceof Error ? err.message : err);
+    console.error(`[cartao] erro ao carregar contato do funcionário ${session.codfunc} (empresa ${session.codemp}):`, err instanceof Error ? err.message : err);
     return { ok: false, error: "Não foi possível carregar seu cartão. Tente novamente." };
   }
 }

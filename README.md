@@ -25,9 +25,10 @@ Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAu
 2. O sistema busca, com o usuário de integração:
    - `TFPFUN` pelo CPF, só funcionário ativo (`SITUACAO <> 0`) e não demitido (`DTDEM IS NULL`) → `CODEMP` + `CODFUNC` (a empresa entra no filtro porque o mesmo
      `CODFUNC` pode existir em empresas diferentes);
-   - `TSIUSU` pelo par `CODEMP` + `CODFUNC` → vendedor vinculado (`TSIUSU.CODVEND`);
-   - `TGFVEN`: sem vendedor ou vendedor inativo → acesso negado; CPF ligado a mais de um
-     vendedor ativo → acesso negado; `TIPVEND = 'G'` → **gerente**; senão → **vendedor**.
+   - **gerente**: registro ativo em `TGFVEN` com esse `CODFUNC` + `CODEMP` e `TIPVEND` `S` ou `G`
+     → vê a loja `TGFVEN.CODEMP`; gerente em mais de uma loja → acesso negado;
+   - senão, **vendedor**: `TSIUSU` pelo par `CODEMP` + `CODFUNC` → `TSIUSU.CODVEND`; sem vendedor,
+     vendedor inativo ou mais de um vendedor ativo → acesso negado.
 3. Cria uma sessão em cookie criptografado (JWE A256GCM, `HttpOnly`, `Secure`, `SameSite=Lax`, 8h).
 4. O dashboard consulta via `DbExplorerSP.executeQuery` pelo gateway
    (`/gateway/v1/mge/service.sbr`) com o token do usuário de integração. O SQL é montado
@@ -41,8 +42,7 @@ Toda a comunicação usa a **API oficial do Sankhya** (`api.sankhya.com.br`, OAu
 | Perfil | Vê |
 |---|---|
 | Vendedor | apenas `TGFCAB.CODVEND = seu código`. Parâmetros na URL são ignorados. |
-| Gerente (`MANAGER_SCOPE=empresa`) | vendas da sua empresa/loja: `TGFCAB.CODEMP = TGFVEN.CODEMP` do gerente |
-| Gerente (`MANAGER_SCOPE=equipe`) | as próprias vendas + vendedores com `TGFVEN.CODGER` = ele |
+| Gerente | as vendas da sua loja: `TGFCAB.CODEMP` = empresa do gerente em `TGFVEN`. O filtro lista os vendedores ativos da loja e da equipe (`CODGER`). |
 
 O filtro de vendedor do gerente só **restringe** (é somado com `AND`), nunca amplia.
 
@@ -78,7 +78,7 @@ O botão **Cartão**, ao lado dos filtros, abre o cartão de visita do usuário 
 nome (primeiro e último, de `TFPFUN.NOMEFUNC`), cargo e celular; tocando, ele vira e mostra um
 QR code que abre o WhatsApp do vendedor (`https://wa.me/55<DDD><número>`).
 
-O telefone vem de `TFPFUN.TELEFONE` (funcionário ligado ao usuário por `CODEMP` + `CODFUNC`) e
+O telefone vem de `TFPFUN.TELEFONE` (o funcionário que entrou, por `CODEMP` + `CODFUNC`) e
 precisa ter DDD. Sem telefone válido, o cartão avisa e o log registra o usuário.
 
 ## Vendas e devoluções

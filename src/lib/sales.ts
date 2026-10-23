@@ -9,19 +9,14 @@ import { date, dayKey, inList, int, limit } from "./sankhya/sql";
  * Restrição de acesso — aplicada SEMPRE no servidor, a partir da sessão
  * criptografada (nunca de parâmetros enviados pelo navegador):
  *  - vendedor: apenas notas com o próprio CODVEND
- *  - gerente:  notas da sua empresa/loja (ou da sua equipe, conforme MANAGER_SCOPE)
+ *  - gerente:  as notas da sua loja (TGFCAB.CODEMP = empresa do gerente)
  * O filtro opcional de vendedor do gerente é somado (AND) à restrição, então
  * nunca amplia o que ele pode ver.
  */
 function scopeWhere(session: Session, vendedor?: number) {
   if (session.role === "vendedor") return [`CAB.CODVEND = ${int(session.codvend)}`];
 
-  const clauses =
-    env().MANAGER_SCOPE === "empresa"
-      ? [`CAB.CODEMP = ${int(session.codemp!)}`]
-      : [
-          `(CAB.CODVEND = ${int(session.codvend)} OR CAB.CODVEND IN (SELECT V.CODVEND FROM TGFVEN V WHERE V.CODGER = ${int(session.codvend)}))`,
-        ];
+  const clauses = [`CAB.CODEMP = ${int(session.codemp)}`];
   if (vendedor) clauses.push(`CAB.CODVEND = ${int(vendedor)}`);
   return clauses;
 }
@@ -183,13 +178,9 @@ export async function getDashboardData(session: Session, period: Period, vendedo
 /** Vendedores que o gerente pode filtrar (dentro do seu escopo). */
 export async function getTeam(session: Session) {
   if (session.role !== "gerente") return [];
-  const filter =
-    env().MANAGER_SCOPE === "empresa"
-      ? `VEN.CODEMP = ${int(session.codemp!)}`
-      : `(VEN.CODGER = ${int(session.codvend)} OR VEN.CODVEND = ${int(session.codvend)})`;
   const rows = await query(
     `SELECT VEN.CODVEND, VEN.APELIDO FROM TGFVEN VEN
-      WHERE VEN.ATIVO = 'S' AND ${filter}
+      WHERE VEN.ATIVO = 'S' AND (VEN.CODEMP = ${int(session.codemp)} OR VEN.CODGER = ${int(session.codvend)})
       ORDER BY VEN.APELIDO`,
   );
   return rows.map((r) => ({ codigo: n(r.CODVEND), nome: s(r.APELIDO) }));

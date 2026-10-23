@@ -255,7 +255,7 @@ export default function HelpPage() {
               <strong>Vendedor</strong> vê somente as próprias vendas.
             </li>
             <li>
-              <strong>Gerente</strong> vê as vendas da loja e de cada vendedor da equipe.
+              <strong>Gerente</strong> vê as vendas da loja dele e de cada vendedor da loja.
             </li>
           </ul>
           <Tip>Funciona em qualquer celular, tablet ou computador com internet. Não precisa baixar nada da loja de aplicativos.</Tip>

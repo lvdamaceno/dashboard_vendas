@@ -5,12 +5,14 @@ import { z } from "zod";
 import { env } from "./env";
 
 const sessionSchema = z.object({
-  codusu: z.number().int(),
+  /** Funcionário (TFPFUN) de quem entrou */
+  codfunc: z.number().int(),
   nome: z.string(),
   codvend: z.number().int().positive(),
   apelido: z.string(),
   role: z.enum(["vendedor", "gerente"]),
-  codemp: z.number().int().nullable(),
+  /** Empresa do funcionário; para o gerente, a loja cujas vendas ele vê */
+  codemp: z.number().int(),
 });
 
 export type Session = z.infer<typeof sessionSchema>;
