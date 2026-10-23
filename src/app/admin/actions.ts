@@ -18,8 +18,8 @@ const same = (a: string, b: string) => timingSafeEqual(createHash("sha256").upda
 export async function adminLogin(_prev: AdminState, form: FormData): Promise<AdminState> {
   const { ADMIN_USER, ADMIN_PASSWORD } = env();
   if (!ADMIN_USER || !ADMIN_PASSWORD) return { error: "Acesso de admin não configurado." };
-  if (ADMIN_PASSWORD.length < 12) {
-    console.error("[admin] ADMIN_PASSWORD precisa ter ao menos 12 caracteres; acesso de admin desligado");
+  if (ADMIN_PASSWORD.length < 10) {
+    console.error("[admin] ADMIN_PASSWORD precisa ter ao menos 10 caracteres; acesso de admin desligado");
     return { error: "Acesso de admin mal configurado. Veja os logs do servidor." };
   }
 
