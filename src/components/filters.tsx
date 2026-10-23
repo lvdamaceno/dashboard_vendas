@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Preset } from "@/lib/period";
 import { BusinessCard } from "./business-card";
+import { Select } from "@/components/select";
 
 const PRESETS: { value: Preset; label: string }[] = [
   { value: "hoje", label: "Hoje" },
@@ -32,25 +33,6 @@ interface Props {
 // Alvos de toque de 44px no celular; um pouco mais compactos a partir do tablet
 const control =
   "h-11 w-full min-w-0 rounded-full border border-line bg-surface px-4 text-base outline-none focus:border-accent focus:ring-3 focus:ring-accent/15 md:h-10 md:text-sm";
-
-/** Caixa de seleção com a seta desenhada, afastada da borda arredondada. */
-function Select({ className = "", ...props }: React.ComponentProps<"select">) {
-  return (
-    <div className={`relative ${className}`}>
-      <select {...props} className={`${control} cursor-pointer appearance-none pr-11`} />
-      <svg
-        viewBox="0 0 20 20"
-        className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-ink-3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        aria-hidden
-      >
-        <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
 
 export function Filters({ preset, from, to, today, vendedor, team, stores = [], loja, showCard = true, showGoals = false }: Props) {
   const router = useRouter();
@@ -171,7 +153,8 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
           value={loja ?? ""}
           // Trocar de loja limpa o vendedor, que é de outra equipe
           onChange={(e) => navigate({ ...current, loja: Number(e.target.value) || undefined, vendedor: undefined })}
-          className="md:w-56"
+          className={control}
+          wrapperClassName="md:w-56"
         >
           <option value="">Todas as lojas</option>
           {stores.map((s) => (
@@ -187,7 +170,8 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
           aria-label="Vendedor"
           value={vendedor ?? ""}
           onChange={(e) => navigate({ ...current, vendedor: Number(e.target.value) || undefined })}
-          className="md:w-56"
+          className={control}
+          wrapperClassName="md:w-56"
         >
           <option value="">Todos os vendedores</option>
           {team.map((v) => (

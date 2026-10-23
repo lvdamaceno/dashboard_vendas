@@ -5,8 +5,7 @@ import { monthWorkdays } from "@/lib/feriados";
 import { listGoalPeople, listGoals } from "@/lib/metas";
 import { listNotices } from "@/lib/painel";
 import { todayIso } from "@/lib/period";
-import { getStores, salesPeopleByStore } from "@/lib/sales";
-import { env } from "@/lib/env";
+import { getSellingStores, salesPeopleByStore } from "@/lib/sales";
 import { getSession } from "@/lib/session";
 import { CopyGoals } from "./copy-goals";
 import { GoalsForm } from "./goals-form";
@@ -39,7 +38,7 @@ export default async function GoalsPage({ searchParams }: { searchParams: Search
   let stores: { codigo: number; nome: string }[] = [];
   try {
     // Empresas que não vendem (META_LOJAS_FORA) não recebem meta
-    stores = (await getStores()).filter((s) => !env().META_LOJAS_FORA.includes(s.codigo));
+    stores = await getSellingStores();
     const [metas, pessoas, candidatos] = await Promise.all([listGoals(`${mes}-01`), listGoalPeople(`${mes}-01`), salesPeopleByStore()]);
     const linhas = stores.map((s) => {
       const marcados = pessoas.filter((p) => p.codemp === s.codigo);

@@ -227,6 +227,12 @@ export async function getStores() {
   return rows.map((r) => ({ codigo: n(r.CODEMP), nome: s(r.NOMEFANTASIA) || `Loja ${n(r.CODEMP)}` }));
 }
 
+/** Lojas que vendem: as de getStores sem as empresas de META_LOJAS_FORA (ex.: Dr. Freitas, Ananindeua, Ultralog). */
+export async function getSellingStores() {
+  const fora = env().META_LOJAS_FORA;
+  return (await getStores()).filter((s) => !fora.includes(s.codigo));
+}
+
 export interface Person {
   /** CODVEND (vendedor/gerente) ou painel.usuario_master.id (master) */
   codigo: number;

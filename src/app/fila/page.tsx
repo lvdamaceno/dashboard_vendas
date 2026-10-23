@@ -4,7 +4,7 @@ import { Shell } from "@/components/shell";
 import { photoVersion } from "@/lib/fila";
 import { loadQueue, queueStore, type QueueView } from "@/lib/fila-access";
 import { listNotices } from "@/lib/painel";
-import { getStores, vendorStore } from "@/lib/sales";
+import { getSellingStores, getStores, vendorStore } from "@/lib/sales";
 import { getSession } from "@/lib/session";
 import { QueueBoard, StorePicker } from "./queue-board";
 
@@ -36,9 +36,11 @@ export default async function QueuePage({ searchParams }: { searchParams: Search
     return lojaParam ?? null;
   };
 
-  const [stores, notices, codemp, foto] = await Promise.all([
+  const [stores, lojasDeVenda, notices, codemp, foto] = await Promise.all([
     // Também para o vendedor: o nome da loja aparece no topo da fila
     getStores().catch(() => []),
+    // Seletor e "todas as filas": só as lojas que vendem (sem as de META_LOJAS_FORA)
+    choosesStore ? getSellingStores().catch(() => []) : Promise.resolve([]),
     listNotices(session).catch(() => null),
     (como ? lojaComo() : queueStore(session, lojaParam)).catch((err) => {
       console.error("[fila] loja:", err instanceof Error ? err.message : err);
@@ -51,7 +53,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Search
   // Admin sem loja escolhida: todas as filas, uma embaixo da outra
   if (admin && !lojaParam) {
     const filas = await Promise.all(
-      stores.map(async (s) => ({ loja: s, view: await loadQueue(session, s.codigo).catch(() => null) })),
+      lojasDeVenda.map(async (s) => ({ loja: s, view: await loadQueue(session, s.codigo).catch(() => null) })),
     );
     return (
       <Shell session={session} notices={notices} stores={stores} scope="Admin · Filas">
@@ -64,7 +66,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Search
             Voltar ao painel
           </Link>
         </div>
-        <StorePicker stores={stores} allOption />
+        <StorePicker stores={lojasDeVenda} allOption />
         <div className="grid items-start gap-3 lg:grid-cols-2">
           {filas.map(({ loja, view }) => (
             <QueueBoard
@@ -110,7 +112,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Search
         // O admin age sempre pela loja informada (ações e atualização)
         loja={session.role === "admin" ? (codemp ?? undefined) : choosesStore ? lojaParam : undefined}
         lojaNome={codemp ? nomeLoja(codemp) : undefined}
-        stores={choosesStore ? stores : []}
+        stores={choosesStore ? lojasDeVenda : []}
         allOption={admin}
       />
     </Shell>

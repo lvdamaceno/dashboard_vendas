@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { sendNotice, type FormState } from "../painel-actions";
 import { addReminder, saveMaster, type AdminState } from "./actions";
+import { Select } from "@/components/select";
 
 const field =
   "w-full rounded-2xl border border-line bg-bg px-4 py-2.5 text-base outline-none focus:border-accent focus:ring-3 focus:ring-accent/15 md:text-sm";
@@ -26,14 +27,14 @@ export function NoticeForm({ stores }: { stores: { codigo: number; nome: string 
       <input name="titulo" required maxLength={120} placeholder="Título" className={field} />
       <textarea name="mensagem" required maxLength={2000} rows={4} placeholder="Mensagem" className={field} />
       <div className="flex flex-col gap-2 sm:flex-row">
-        <select name="loja" aria-label="Para quem" defaultValue="" className={`${field} sm:flex-1`}>
+        <Select name="loja" aria-label="Para quem" defaultValue="" className={field} wrapperClassName="sm:flex-1">
           <option value="">Todo mundo (todas as lojas)</option>
           {stores.map((s) => (
             <option key={s.codigo} value={s.codigo}>
               {s.nome}
             </option>
           ))}
-        </select>
+        </Select>
         <button type="submit" disabled={pending} className={submit}>
           {pending ? "Enviando…" : "Enviar aviso"}
         </button>
@@ -83,36 +84,36 @@ export function ReminderForm() {
       <input name="titulo" required maxLength={120} placeholder="Título (ex.: Preencher as metas do mês)" className={field} />
       <textarea name="mensagem" required maxLength={2000} rows={3} placeholder="Mensagem" className={field} />
       <div className="grid gap-2 sm:grid-cols-3">
-        <select name="publico" aria-label="Para quem" defaultValue="master" className={field}>
+        <Select name="publico" aria-label="Para quem" defaultValue="master" className={field}>
           <option value="master">Diretoria (master)</option>
           <option value="gerente">Gerentes</option>
           <option value="vendedor">Vendedores</option>
           <option value="todos">Todo mundo</option>
-        </select>
-        <select name="recorrencia" aria-label="Quando" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)} className={field}>
+        </Select>
+        <Select name="recorrencia" aria-label="Quando" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)} className={field}>
           <option value="mensal">Todo mês, no dia…</option>
           <option value="semanal">Toda semana, na…</option>
           <option value="diaria">Todo dia</option>
           <option value="unica">Uma vez, na data…</option>
-        </select>
+        </Select>
         {recorrencia === "mensal" && (
-          <select name="diaMes" aria-label="Dia do mês" defaultValue="1" className={field}>
+          <Select name="diaMes" aria-label="Dia do mês" defaultValue="1" className={field}>
             {Array.from({ length: 31 }, (_, i) => (
               <option key={i + 1} value={i + 1}>
                 Dia {i + 1}
                 {i + 1 > 28 ? " (ou o último do mês)" : ""}
               </option>
             ))}
-          </select>
+          </Select>
         )}
         {recorrencia === "semanal" && (
-          <select name="diaSemana" aria-label="Dia da semana" defaultValue="1" className={field}>
+          <Select name="diaSemana" aria-label="Dia da semana" defaultValue="1" className={field}>
             {WEEKDAYS.map((d, i) => (
               <option key={d} value={i}>
                 {d}
               </option>
             ))}
-          </select>
+          </Select>
         )}
         {recorrencia === "unica" && <input name="data" type="date" required aria-label="Data" className={field} />}
       </div>

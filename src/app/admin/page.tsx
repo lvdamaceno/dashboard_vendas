@@ -16,6 +16,7 @@ import { configChecks, connectionChecks, searchLogs, serverInfo, usageStats, typ
 import type { Nivel } from "@/lib/monitor";
 import { HolidaysManager } from "../feriados/holidays-manager";
 import { todayIso } from "@/lib/period";
+import { Select } from "@/components/select";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -330,16 +331,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                 placeholder="Procurar (ex.: sankhya, login, erro, nome)"
                 className="h-10 min-w-0 flex-1 basis-56 rounded-full border border-line bg-bg px-4 text-base outline-none focus:border-accent md:text-sm"
               />
-              <select name="nivel" defaultValue={nivel} aria-label="Nível" className="h-10 rounded-full border border-line bg-bg px-3 text-sm">
+              <Select name="nivel" defaultValue={nivel} aria-label="Nível" className="h-10 rounded-full border border-line bg-bg pl-4 text-sm" wrapperClassName="w-full sm:w-auto">
                 <option value="todos">Todos os níveis</option>
                 <option value="error">Erros</option>
                 <option value="warn">Alertas</option>
                 <option value="info">Informações</option>
-              </select>
-              <select name="fonte" defaultValue={fonte} aria-label="De onde" className="h-10 rounded-full border border-line bg-bg px-3 text-sm">
+              </Select>
+              <Select name="fonte" defaultValue={fonte} aria-label="De onde" className="h-10 rounded-full border border-line bg-bg pl-4 text-sm" wrapperClassName="w-full sm:w-auto">
                 <option value="banco">Últimos 30 dias (erros, alertas e acessos)</option>
                 <option value="memoria">Desde o último reinício (tudo)</option>
-              </select>
+              </Select>
               <button type="submit" className="h-10 rounded-full bg-accent px-5 font-title text-sm font-medium text-white hover:bg-accent-dark">
                 Procurar
               </button>

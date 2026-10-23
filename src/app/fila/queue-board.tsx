@@ -8,6 +8,7 @@ import { PushToggle } from "@/components/push-toggle";
 import type { QueueView } from "@/lib/fila-access";
 import type { Session } from "@/lib/session";
 import { enterQueue, exitQueue, finishCustomer, removeFromQueue, removePhoto, reorder, serveCustomer, uploadPhoto, type QueueResult } from "./actions";
+import { Select } from "@/components/select";
 
 const POLL_MS = 4000;
 
@@ -32,11 +33,12 @@ interface Props {
 export function StorePicker({ stores, loja, allOption }: { stores: { codigo: number; nome: string }[]; loja?: number; allOption?: boolean }) {
   const router = useRouter();
   return (
-    <select
+    <Select
       aria-label="Loja"
       value={loja ?? ""}
       onChange={(e) => router.push(e.target.value ? `/fila?loja=${e.target.value}` : "/fila")}
-      className="h-11 w-full rounded-full border border-line bg-surface px-4 text-base md:w-72 md:text-sm"
+      className="h-11 rounded-full border border-line bg-surface pl-4 text-base md:text-sm"
+      wrapperClassName="w-full md:w-72"
     >
       <option value="">{allOption ? "Todas as lojas" : "Escolha a loja"}</option>
       {stores.map((s) => (
@@ -44,7 +46,7 @@ export function StorePicker({ stores, loja, allOption }: { stores: { codigo: num
           {s.nome}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 

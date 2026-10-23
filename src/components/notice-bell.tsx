@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { seeNotices, sendNotice, type FormState } from "@/app/painel-actions";
 import type { Notice } from "@/lib/painel";
 import type { Session } from "@/lib/session";
+import { Select } from "@/components/select";
 
 const when = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
@@ -81,14 +82,14 @@ export function NoticeBell({ notices, role, stores, lojaNome }: Props) {
                   {role === "gerente" ? (
                     <p className="text-xs text-ink-3">Vai para a sua equipe ({lojaNome}).</p>
                   ) : (
-                    <select name="loja" aria-label="Para quem" defaultValue="" className={field}>
+                    <Select name="loja" aria-label="Para quem" defaultValue="" className={field}>
                       <option value="">Todas as lojas</option>
                       {stores.map((s) => (
                         <option key={s.codigo} value={s.codigo}>
                           {s.nome}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                   {state.error && (
                     <p role="alert" className="text-sm text-bad">
