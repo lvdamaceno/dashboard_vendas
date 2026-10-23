@@ -89,3 +89,26 @@ CREATE TABLE IF NOT EXISTS painel.foto (
   dados         bytea NOT NULL CHECK (octet_length(dados) <= 307200),
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );
+
+-- Metas mensais de faturamento líquido, informadas por master e admin.
+-- codvend 0 = meta geral da loja; > 0 = meta individual do vendedor (TGFVEN.CODVEND) naquela loja.
+CREATE TABLE IF NOT EXISTS painel.meta (
+  mes           date NOT NULL CHECK (extract(day FROM mes) = 1),
+  codemp        integer NOT NULL,
+  codvend       integer NOT NULL DEFAULT 0,
+  valor         numeric(14, 2) NOT NULL CHECK (valor > 0),
+  autor_nome    text NOT NULL,
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (mes, codemp, codvend)
+);
+
+-- Ajustes de feriado feitos pelo admin, por cima do calendário calculado (src/lib/workdays.ts):
+-- fecha = true  → dia sem expediente (feriado novo, ex.: decreto, loja fechada);
+-- fecha = false → a loja abre num feriado do calendário (o dia volta a contar como útil).
+CREATE TABLE IF NOT EXISTS painel.feriado (
+  dia           date PRIMARY KEY,
+  nome          text NOT NULL CHECK (length(nome) BETWEEN 1 AND 120),
+  fecha         boolean NOT NULL DEFAULT true,
+  autor_nome    text NOT NULL,
+  atualizado_em timestamptz NOT NULL DEFAULT now()
+);

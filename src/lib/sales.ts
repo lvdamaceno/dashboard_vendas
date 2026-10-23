@@ -330,3 +330,33 @@ export async function vendorStore(codvend: number, ttlMs = 0) {
   const [r] = await query(`SELECT VEN.CODEMP FROM TGFVEN VEN WHERE VEN.ATIVO = 'S' AND VEN.CODVEND = ${int(codvend)}`, { ttlMs });
   return r ? n(r.CODEMP) : null;
 }
+
+/** Vendedores e gerentes ativos de uma loja (TGFVEN.CODEMP), para as metas individuais. */
+export async function getStoreVendors(codemp: number) {
+  const rows = await query(
+    `SELECT VEN.CODVEND, VEN.APELIDO, VEN.TIPVEND FROM TGFVEN VEN
+      WHERE VEN.ATIVO = 'S' AND VEN.CODVEND > 0 AND VEN.CODEMP = ${int(codemp)}
+      ORDER BY VEN.APELIDO`,
+    { ttlMs: 5 * 60_000 },
+  );
+  return rows.map((r) => ({
+    codvend: n(r.CODVEND),
+    nome: s(r.APELIDO),
+    role: r.TIPVEND === "S" || r.TIPVEND === "G" ? ("gerente" as const) : ("vendedor" as const),
+  }));
+}
+
+/**
+ * Faturamento líquido por loja e vendedor de from até hoje, dentro do escopo da sessão (para as metas),
+ * com o que foi vendido só hoje separado.
+ */
+export async function salesByStoreAndVendor(session: Session, from: string, today: string) {
+  const rows = await query(
+    `SELECT CAB.CODEMP, CAB.CODVEND, SUM(CAB.VLRNOTA * ${sign()}) AS TOTAL,
+            SUM(CASE WHEN CAB.DTNEG >= ${date(today)} THEN CAB.VLRNOTA * ${sign()} ELSE 0 END) AS HOJE
+       FROM TGFCAB CAB
+     ${salesWhere(session, from, today)}
+      GROUP BY CAB.CODEMP, CAB.CODVEND`,
+  );
+  return rows.map((r) => ({ codemp: n(r.CODEMP), codvend: n(r.CODVEND), total: n(r.TOTAL), hoje: n(r.HOJE) }));
+}

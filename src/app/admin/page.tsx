@@ -11,6 +11,8 @@ import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
 import { deleteMaster, removeNotice, toggleFeedback } from "./actions";
 import { ConfirmButton, MasterForm, NoticeForm } from "./forms";
+import { HolidaysManager } from "../feriados/holidays-manager";
+import { todayIso } from "@/lib/period";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -20,6 +22,7 @@ const TABS = [
   { value: "masters", label: "Usuários master" },
   { value: "paineis", label: "Ver painéis" },
   { value: "telefones", label: "Telefones" },
+  { value: "feriados", label: "Feriados" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
@@ -158,6 +161,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
           </section>
         </>
       );
+    }
+
+    if (tab === "feriados") {
+      const anoParam = Number(one(sp.ano));
+      const ano = Number.isSafeInteger(anoParam) && anoParam >= 2020 && anoParam <= 2100 ? anoParam : Number(todayIso().slice(0, 4));
+      return <HolidaysManager ano={ano} yearHref={(y) => `/admin?aba=feriados&ano=${y}`} />;
     }
 
     if (tab === "telefones") {

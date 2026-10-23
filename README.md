@@ -158,6 +158,39 @@ log com o prefixo `[indicadores]`.
 | Indicadores por vendedor (gerente) | peças por atendimento, desconto e devolução (pelos itens) de cada vendedor |
 | Margem bruta (gerente) | (receita − custo) ÷ receita dos itens com custo; custo = registro mais recente de `TGFCUS` até a data da venda, na coluna `MARGEM_CUSTO` (padrão `CUSGER`). Avisa quando falta custo em mais de 5% da receita |
 
+## Metas (`/metas`) e feriados (`/feriados`)
+
+Master e admin informam, por loja e mês, a **meta geral da loja** e a **meta individual** de cada vendedor ativo
+(`painel.meta`; `codvend` 0 = loja). A meta é de **faturamento líquido** (o mesmo número do painel). Botão para
+**copiar as metas do mês anterior** (de uma loja ou de todas), sem sobrescrever o que já foi preenchido e só para
+vendedores que continuam ativos.
+
+**Metas diárias** (`src/lib/goal-progress.ts`):
+
+- meta diária base = meta do mês ÷ dias úteis do mês;
+- saldo = vendido até ontem − base × dias úteis que já passaram (positivo = sobra, negativo = devendo);
+- meta de hoje = base − saldo (nunca abaixo de zero): vender mais deixa a meta do dia seguinte menor; vender menos,
+  maior;
+- projeção = vendido ÷ dias úteis decorridos × dias úteis do mês.
+
+No painel aparecem **Meta do mês** e **Meta de hoje** (do vendedor, da loja para o gerente ou da loja/todas para
+master e admin; com filtro de vendedor, a meta dele) e a lista **Metas da equipe** (por vendedor) ou **Metas por loja**.
+Valem sempre para o mês atual, qualquer que seja o período escolhido.
+
+**Dias úteis** (`src/lib/workdays.ts`): dias da semana em `META_DIAS_SEMANA` (padrão segunda a sábado), menos os
+feriados de Belém do Pará, calculados para qualquer ano (Páscoa pelo algoritmo de Meeus):
+
+| Tipo | Datas |
+|---|---|
+| Nacionais | 1/1, Sexta-feira da Paixão, 21/4, 1/5, 7/9, 12/10, 2/11, 15/11, 20/11, 25/12 |
+| Estadual (PA) | 15/8, Adesão do Grão-Pará |
+| Municipais (Belém) | Corpus Christi, 8/12 Nossa Senhora da Conceição |
+
+Pontos facultativos (Carnaval, 12/1, segunda do Círio, Recírio) não entram. Na tela **Feriados** (master e admin; também
+na aba do admin) dá para **criar feriados** (decretos, loja fechada), marcar que **a loja abre** num feriado do
+calendário, marcar um **domingo com expediente** (conta como dia útil naquele mês; não é copiado) e **copiar os ajustes do
+ano anterior** — feriados móveis acompanham a data nova. Ajustes em `painel.feriado`.
+
 ## Fila de atendimento (`/fila`)
 
 Botão **Fila** ao lado dos filtros do painel. Uma fila por loja por dia, em `painel.fila`.
@@ -189,6 +222,8 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `aviso_visto` | Última vez que cada usuário abriu o sino (marca os novos) |
 | `feedback` | Sugestões e erros, com status concluído |
 | `telefone` | Telefone do cartão salvo pelo app, por `CODVEND`; tem prioridade sobre o do Sankhya |
+| `meta` | Metas mensais por loja (`codvend` 0) e por vendedor |
+| `feriado` | Feriados criados e dias em que a loja abre num feriado (ajustes do calendário) |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |
 | `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |
@@ -228,6 +263,9 @@ src/lib/painel.ts            masters, avisos e sugestões
 src/app/painel-actions.ts    enviar aviso / sugestão (Server Actions)
 src/app/admin/               área de admin (login, abas, ações)
 src/app/fila/                fila de atendimento (tela, ações, foto)
+src/app/metas/, feriados/    metas mensais e ajustes de feriado (master e admin)
+src/lib/goal-progress.ts     meta do mês, meta de hoje, saldo e projeção
+src/lib/workdays.ts          dias úteis e feriados de Belém
 src/lib/fila.ts              fila e fotos no Postgres
 db/schema.sql                tabelas do schema painel
 ```

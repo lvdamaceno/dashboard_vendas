@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Filters } from "@/components/filters";
+import { GoalSummary, GoalTable } from "@/components/goals";
+import { getGoalProgress, type GoalProgress } from "@/lib/goal-progress";
 import { KpiCard } from "@/components/kpi-card";
 import { LostClients } from "@/components/lost-clients";
 import { OrdersTable } from "@/components/orders-table";
@@ -57,13 +59,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   // (Suspense), sem segurar o resto da tela
   const insights = getInsights(view, period, vendedor);
 
+  const storesP = isManagerial(session) ? optional("lojas", getStores) : Promise.resolve([]);
+  // Metas do mês atual (independem do período escolhido); se falhar, o bloco não aparece
+  const goals = storesP
+    .then((lojas) => getGoalProgress(view, lojas, vendedor))
+    .catch((err): GoalProgress | null => {
+      console.error("[metas] andamento:", err instanceof Error ? err.message : err);
+      return null;
+    });
+
   // Avisos, lojas e vendas ao mesmo tempo (nada espera o outro)
   const [notices, stores, people, main] = await Promise.all([
     listNotices(session).catch((err): Notice[] | null => {
       console.error("[avisos] erro ao carregar:", err instanceof Error ? err.message : err);
       return null;
     }),
-    isManagerial(session) ? optional("lojas", getStores) : [],
+    storesP,
     session.role === "admin" && !session.como ? listPeopleForAdmin() : ([] as Person[]),
     Promise.all([getDashboardData(view, period, vendedor), getTeam(view, period, vendedor)]).then(
       ([data, team]) => ({ data, team }),
@@ -133,6 +144,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         stores={allStores ? stores : []}
         loja={loja}
         showCard={session.role === "vendedor" || session.role === "gerente"}
+        showGoals={session.role === "master" || (session.role === "admin" && !session.como)}
       />
 
       {/* data-offline-ok: o service worker só guarda para uso offline o painel que carregou */}
@@ -158,6 +170,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <KpiCard label="Ticket médio" value={money(atual.ticket)} current={atual.ticket} previous={anterior.ticket} prevLabel={period.prevLabel} />
         <KpiCard label="Clientes" value={number(atual.clientes)} current={atual.clientes} previous={anterior.clientes} prevLabel={period.prevLabel} />
       </div>
+
+      <Suspense fallback={null}>
+        <Await promise={goals}>{(g) => g && <GoalSummary progress={g} />}</Await>
+      </Suspense>
 
       <Suspense fallback={<SkeletonRow />}>
         <SecondaryKpis insights={insights} atual={atual} anterior={anterior} prevLabel={period.prevLabel} />
@@ -209,6 +225,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           }))}
         />
       )}
+
+      <Suspense fallback={null}>
+        <Await promise={goals}>{(g) => g?.detalhe && <GoalTable titulo={g.detalhe.titulo} linhas={g.detalhe.linhas} hojeUtil={g.hojeUtil} />}</Await>
+      </Suspense>
 
       {isManager && !vendedor && (
         <Suspense fallback={<Skeleton className="h-64" />}>

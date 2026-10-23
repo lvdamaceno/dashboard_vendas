@@ -52,6 +52,7 @@ const SECTIONS = [
   ["cartao", "Cartão de visita (WhatsApp)"],
   ["avisos", "Avisos e sugestões"],
   ["fila", "Fila de atendimento"],
+  ["metas", "Metas"],
   ["instalar", "Instalar no celular"],
   ["sair", "Sair e segurança"],
   ["duvidas", "Dúvidas frequentes"],
@@ -609,6 +610,34 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
         Coloque a sua foto em <strong>Sua foto na fila</strong>, embaixo da lista: ela aparece ao lado do seu nome para a equipe.
       </Tip>
       <p>O gerente da loja também vê a fila e pode mudar a ordem quando precisar.</p>
+    </>,
+  ],
+  metas: [
+    <>
+      <p>
+        Quando a loja tem meta no mês, o painel mostra dois quadros logo abaixo dos números principais. Eles valem sempre para o mês de
+        hoje, qualquer que seja o período escolhido.
+      </p>
+      <Term name="Meta do mês">
+        Quanto da sua meta você já vendeu, quanto falta e onde o mês termina se continuar no mesmo ritmo. O gerente vê a meta da loja.
+      </Term>
+      <Term name="Meta de hoje">
+        A meta do mês dividida pelos dias úteis (sem domingos e feriados), com o saldo dos dias anteriores.
+      </Term>
+    </>,
+    <>
+      <p>
+        <strong>O saldo passa para o dia seguinte:</strong>
+      </p>
+      <Steps>
+        <li>
+          Vendeu <strong>mais</strong> que a meta do dia? A diferença vira <span className="text-good">saldo</span> e a meta de amanhã fica menor.
+        </li>
+        <li>
+          Vendeu <strong>menos</strong>? A diferença fica <span className="text-bad">devendo</span> e a meta de amanhã fica maior.
+        </li>
+      </Steps>
+      <Tip>O gerente vê também as <strong>Metas da equipe</strong>: quanto cada vendedor já fez do mês, a meta de hoje e o saldo.</Tip>
     </>,
   ],
   instalar: [

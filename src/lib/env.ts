@@ -31,6 +31,8 @@ const schema = z.object({
     .string()
     .regex(/^CUS[A-Z]{2,10}$/, "nome de coluna de TGFCUS, ex.: CUSGER")
     .default("CUSGER"),
+  // Dias da semana com expediente nas metas diárias (0 = domingo … 6 = sábado); padrão segunda a sábado
+  META_DIAS_SEMANA: list(/^[0-6]$/).transform((v) => (v.length ? v : ["1", "2", "3", "4", "5", "6"]).map(Number)),
   // Área de admin (/admin/login); sem os dois, o acesso de admin fica desligado.
   // O tamanho mínimo da senha é conferido só no login do admin, para não derrubar o resto do app.
   ADMIN_USER: optional(z.string()),

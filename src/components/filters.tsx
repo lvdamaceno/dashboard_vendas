@@ -25,6 +25,8 @@ interface Props {
   loja?: number;
   /** Gerente, master e admin veem o cartão; master e admin não têm cartão */
   showCard?: boolean;
+  /** Master e admin: atalho para cadastrar metas */
+  showGoals?: boolean;
 }
 
 // Alvos de toque de 44px no celular; um pouco mais compactos a partir do tablet
@@ -50,7 +52,7 @@ function Select({ className = "", ...props }: React.ComponentProps<"select">) {
   );
 }
 
-export function Filters({ preset, from, to, today, vendedor, team, stores = [], loja, showCard = true }: Props) {
+export function Filters({ preset, from, to, today, vendedor, team, stores = [], loja, showCard = true, showGoals = false }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -112,6 +114,33 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
             </svg>
             <span className="hidden sm:inline">Fila</span>
           </Link>
+          {showGoals && (
+            <Link
+              href={loja ? `/metas?loja=${loja}` : "/metas"}
+              className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+            >
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <circle cx="12" cy="12" r="8.5" />
+                <circle cx="12" cy="12" r="4.5" />
+                <circle cx="12" cy="12" r="1" fill="currentColor" />
+              </svg>
+              <span className="hidden sm:inline">Metas</span>
+            </Link>
+          )}
+          {showGoals && (
+            <Link
+              href="/feriados"
+              aria-label="Feriados"
+              className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+            >
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                <path d="M3.5 9.5h17M8 3v4M16 3v4" strokeLinecap="round" />
+                <path d="m9.5 15 2 2 3.5-4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="hidden sm:inline">Feriados</span>
+            </Link>
+          )}
           {showCard && <BusinessCard />}
         </div>
       </div>
