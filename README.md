@@ -102,9 +102,10 @@ substituem a última cópia boa (a página marca o painel carregado com `data-of
 
 ## Cartão de visita (WhatsApp)
 
-O botão **Cartão**, ao lado dos filtros, abre o cartão de visita do usuário logado: na frente,
-nome (primeiro e último, de `TFPFUN.NOMEFUNC`), cargo e celular; tocando, ele vira e mostra um
-QR code que abre o WhatsApp do vendedor (`https://wa.me/55<DDD><número>`).
+O botão **Cartão**, ao lado dos filtros, abre o cartão de visita do usuário logado: primeiro o
+QR code que abre o WhatsApp do vendedor (`https://wa.me/55<DDD><número>`); tocando, ele vira e mostra
+nome (primeiro e último, de `TFPFUN.NOMEFUNC`), cargo, celular e, se o vendedor enviou, a mesma foto
+da fila de atendimento.
 
 O telefone vem de `painel.telefone` (salvo pelo app) ou, sem ele, de `TFPFUN.TELEFONE` (o funcionário
 que entrou, por `CODEMP` + `CODFUNC`), e precisa ter DDD. Sem telefone válido, o cartão avisa e o log registra o usuário.
@@ -181,6 +182,12 @@ master e admin; com filtro de vendedor, a meta dele) e a lista **Metas da equipe
 **Metas por loja**.
 Valem sempre para o mês atual, qualquer que seja o período escolhido.
 
+**Para a diretoria (master e admin, todas as lojas):** quanto falta por dia útil para bater a meta, se cada loja
+**fecha o mês** no ritmo atual ("no ritmo" / "abaixo do ritmo", com a projeção e o ritmo necessário), a lista
+**Metas por vendedor (todas as lojas)** e o card **Crescimento vs ano anterior** (faturamento líquido do período
+comparado com as mesmas datas do ano passado, cortado na data de hoje). O master não vê "Clientes para chamar de
+volta" (a consulta nem roda).
+
 **Dias úteis** (`src/lib/workdays.ts`): dias da semana em `META_DIAS_SEMANA` (padrão segunda a sábado), menos os
 feriados de Belém do Pará, calculados para qualquer ano (Páscoa pelo algoritmo de Meeus):
 
@@ -194,6 +201,15 @@ Pontos facultativos (Carnaval, 12/1, segunda do Círio, Recírio) não entram. N
 na aba do admin) dá para **criar feriados** (decretos, loja fechada), marcar que **a loja abre** num feriado do
 calendário, marcar um **domingo com expediente** (conta como dia útil naquele mês; não é copiado) e **copiar os ajustes do
 ano anterior** — feriados móveis acompanham a data nova. Ajustes em `painel.feriado`.
+
+## Lembretes (admin)
+
+Aba **Lembretes** do admin: título, mensagem, público (diretoria, gerentes, vendedores ou todos) e repetição — todo mês
+num dia (no mês mais curto, o último dia), toda semana num dia, todo dia ou uma data só. No dia, o lembrete vira um
+aviso no **sino** do público escolhido (`painel.aviso.papel`), na primeira abertura de tela depois de vencer (não há
+tarefa agendada; um `UPDATE` condicional em `painel.lembrete.ultimo_envio` garante uma entrega por ocorrência).
+Ocorrências de antes da criação do lembrete não são entregues. Dá para pausar e apagar. Não há notificação no celular
+com o app fechado.
 
 ## Fila de atendimento (`/fila`)
 
@@ -229,6 +245,7 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `meta` | Metas mensais por loja: `codvend` 0 = meta da loja, -1 = meta por vendedor |
 | `meta_pessoa` | Pessoas consideradas na meta individual de cada loja no mês (uma loja por pessoa) |
 | `feriado` | Feriados criados e dias em que a loja abre num feriado (ajustes do calendário) |
+| `lembrete` | Lembretes recorrentes do admin (viram avisos no sino) |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |
 | `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |

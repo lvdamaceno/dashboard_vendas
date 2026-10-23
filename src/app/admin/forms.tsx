@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { sendNotice, type FormState } from "../painel-actions";
-import { saveMaster, type AdminState } from "./actions";
+import { addReminder, saveMaster, type AdminState } from "./actions";
 
 const field =
   "w-full rounded-2xl border border-line bg-bg px-4 py-2.5 text-base outline-none focus:border-accent focus:ring-3 focus:ring-accent/15 md:text-sm";
@@ -68,5 +68,59 @@ export function ConfirmButton({ message, children, className }: { message: strin
     <button type="submit" className={className} onClick={(e) => !confirm(message) && e.preventDefault()}>
       {children}
     </button>
+  );
+}
+
+const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+/** Novo lembrete recorrente: no dia, vira um aviso no sino do público escolhido. */
+export function ReminderForm() {
+  const [state, action, pending] = useActionState<AdminState, FormData>(addReminder, {});
+  const form = useResetOnOk(state);
+  const [recorrencia, setRecorrencia] = useState("mensal");
+  return (
+    <form ref={form} action={action} className="space-y-2">
+      <input name="titulo" required maxLength={120} placeholder="Título (ex.: Preencher as metas do mês)" className={field} />
+      <textarea name="mensagem" required maxLength={2000} rows={3} placeholder="Mensagem" className={field} />
+      <div className="grid gap-2 sm:grid-cols-3">
+        <select name="publico" aria-label="Para quem" defaultValue="master" className={field}>
+          <option value="master">Diretoria (master)</option>
+          <option value="gerente">Gerentes</option>
+          <option value="vendedor">Vendedores</option>
+          <option value="todos">Todo mundo</option>
+        </select>
+        <select name="recorrencia" aria-label="Quando" value={recorrencia} onChange={(e) => setRecorrencia(e.target.value)} className={field}>
+          <option value="mensal">Todo mês, no dia…</option>
+          <option value="semanal">Toda semana, na…</option>
+          <option value="diaria">Todo dia</option>
+          <option value="unica">Uma vez, na data…</option>
+        </select>
+        {recorrencia === "mensal" && (
+          <select name="diaMes" aria-label="Dia do mês" defaultValue="1" className={field}>
+            {Array.from({ length: 31 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>
+                Dia {i + 1}
+                {i + 1 > 28 ? " (ou o último do mês)" : ""}
+              </option>
+            ))}
+          </select>
+        )}
+        {recorrencia === "semanal" && (
+          <select name="diaSemana" aria-label="Dia da semana" defaultValue="1" className={field}>
+            {WEEKDAYS.map((d, i) => (
+              <option key={d} value={i}>
+                {d}
+              </option>
+            ))}
+          </select>
+        )}
+        {recorrencia === "unica" && <input name="data" type="date" required aria-label="Data" className={field} />}
+      </div>
+      {state.error && <p className="text-sm text-bad">{state.error}</p>}
+      {state.ok && <p className="text-sm text-good">Lembrete criado.</p>}
+      <button type="submit" disabled={pending} className={submit}>
+        {pending ? "Salvando…" : "Criar lembrete"}
+      </button>
+    </form>
   );
 }

@@ -378,3 +378,8 @@ export async function salesPeopleByStore(days = 90) {
   );
   return rows.map((r) => ({ codemp: n(r.CODEMP), codvend: n(r.CODVEND), nome: s(r.APELIDO), notas: n(r.NOTAS) }));
 }
+
+/** Faturamento líquido (vendas − devoluções) de um intervalo, no escopo da sessão. */
+export async function netSales(session: Session, from: string, to: string, vendedor?: number) {
+  return (await summary(session, from, to, vendedor)).total;
+}

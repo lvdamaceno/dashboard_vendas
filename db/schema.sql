@@ -123,3 +123,25 @@ CREATE TABLE IF NOT EXISTS painel.meta_pessoa (
   PRIMARY KEY (mes, codvend)
 );
 CREATE INDEX IF NOT EXISTS meta_pessoa_loja_idx ON painel.meta_pessoa (mes, codemp);
+
+-- Aviso só para um papel (ex.: lembrete para a diretoria). NULL = todos (respeitando a loja).
+ALTER TABLE painel.aviso ADD COLUMN IF NOT EXISTS papel text CHECK (papel IN ('master', 'gerente', 'vendedor'));
+
+-- Lembretes recorrentes criados pelo admin: no dia, viram um aviso no sino do público escolhido.
+-- recorrencia: mensal (dia = dia do mês; em mês mais curto, o último dia), semanal (dia = 0 domingo … 6 sábado),
+-- diaria, ou unica (data). ultimo_envio evita mandar duas vezes no mesmo dia.
+CREATE TABLE IF NOT EXISTS painel.lembrete (
+  id           serial PRIMARY KEY,
+  titulo       text NOT NULL CHECK (length(titulo) BETWEEN 1 AND 120),
+  mensagem     text NOT NULL CHECK (length(mensagem) BETWEEN 1 AND 2000),
+  publico      text NOT NULL CHECK (publico IN ('master', 'gerente', 'vendedor', 'todos')),
+  recorrencia  text NOT NULL CHECK (recorrencia IN ('mensal', 'semanal', 'diaria', 'unica')),
+  dia          integer,
+  data         date,
+  ativo        boolean NOT NULL DEFAULT true,
+  ultimo_envio date,
+  criado_em    timestamptz NOT NULL DEFAULT now(),
+  CHECK (recorrencia <> 'mensal' OR dia BETWEEN 1 AND 31),
+  CHECK (recorrencia <> 'semanal' OR dia BETWEEN 0 AND 6),
+  CHECK (recorrencia <> 'unica' OR data IS NOT NULL)
+);

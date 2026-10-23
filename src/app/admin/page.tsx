@@ -9,8 +9,9 @@ import { countPendingFeedback, listFeedback, listMasters, listNotices, type Feed
 import { listPeopleForAdmin } from "@/lib/people";
 import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
-import { deleteMaster, removeNotice, toggleFeedback } from "./actions";
-import { ConfirmButton, MasterForm, NoticeForm } from "./forms";
+import { deleteMaster, removeNotice, removeReminder, toggleFeedback, toggleReminder } from "./actions";
+import { ConfirmButton, MasterForm, NoticeForm, ReminderForm } from "./forms";
+import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
 import { HolidaysManager } from "../feriados/holidays-manager";
 import { todayIso } from "@/lib/period";
 
@@ -19,6 +20,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const TABS = [
   { value: "sugestoes", label: "Sugestões e erros" },
   { value: "avisos", label: "Avisos" },
+  { value: "lembretes", label: "Lembretes" },
   { value: "masters", label: "Usuários master" },
   { value: "paineis", label: "Ver painéis" },
   { value: "telefones", label: "Telefones" },
@@ -160,6 +162,73 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                     </form>
                   </li>
                 ))}
+              </ul>
+            )}
+          </section>
+        </>
+      );
+    }
+
+    if (tab === "lembretes") {
+      const lembretes = await listReminders();
+      const hoje = todayIso();
+      const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });
+      const quando = (r: Reminder) =>
+        r.recorrencia === "mensal"
+          ? `Todo dia ${r.dia} do mês`
+          : r.recorrencia === "semanal"
+            ? `Toda ${["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"][r.dia ?? 0]}`
+            : r.recorrencia === "diaria"
+              ? "Todo dia"
+              : `Uma vez, em ${fmt.format(new Date(`${r.data}T12:00:00Z`))}`;
+      const publico = { master: "Diretoria", gerente: "Gerentes", vendedor: "Vendedores", todos: "Todo mundo" };
+      return (
+        <>
+          <section className={card}>
+            <h2 className="mb-1 text-base">Novo lembrete</h2>
+            <p className="mb-3 text-sm text-ink-2">
+              No dia, o lembrete aparece no sino de avisos de quem você escolher (na primeira vez que a pessoa abrir o painel).
+            </p>
+            <ReminderForm />
+          </section>
+          <section className={card}>
+            <h2 className="mb-3 text-base">Lembretes</h2>
+            {lembretes.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-3">Nenhum lembrete ainda.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {lembretes.map((r) => {
+                  const proximo = nextOccurrence(r, hoje);
+                  return (
+                    <li key={r.id} className={`flex flex-wrap items-start gap-3 py-3 ${r.ativo ? "" : "opacity-60"}`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{r.titulo}</p>
+                        <p className="mt-0.5 text-sm whitespace-pre-line text-ink-2">{r.mensagem}</p>
+                        <p className="mt-1 text-xs text-ink-3">
+                          {publico[r.publico]} · {quando(r)}
+                          {r.ativo && proximo && <> · próximo: {fmt.format(new Date(`${proximo}T12:00:00Z`))}</>}
+                          {r.ultimoEnvio && <> · último envio: {fmt.format(new Date(`${r.ultimoEnvio}T12:00:00Z`))}</>}
+                          {!r.ativo && <> · pausado</>}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <form action={toggleReminder}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="ativo" value={r.ativo ? "0" : "1"} />
+                          <button type="submit" className={small}>
+                            {r.ativo ? "Pausar" : "Retomar"}
+                          </button>
+                        </form>
+                        <form action={removeReminder}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <ConfirmButton message={`Apagar o lembrete "${r.titulo}"?`} className={small}>
+                            Apagar
+                          </ConfirmButton>
+                        </form>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

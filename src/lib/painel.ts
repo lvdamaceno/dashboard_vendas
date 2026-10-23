@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "./db";
+import { deliverDueReminders } from "./lembretes";
 import { seesAllStores, userKey, type Session } from "./session";
 
 // Dados próprios do painel no Postgres (schema "painel"): masters, avisos e sugestões.
@@ -46,6 +47,8 @@ export interface Notice {
   codemp: number | null;
   autorNome: string;
   autorPapel: "admin" | "master" | "gerente";
+  /** Só para este papel (null = todos) */
+  papel: "master" | "gerente" | "vendedor" | null;
   criadoEm: Date;
   novo: boolean;
 }
@@ -55,16 +58,20 @@ export interface Notice {
  * todas as lojas e os da própria loja. "novo" = criado depois da última vez que abriu o sino.
  */
 export async function listNotices(session: Session, max = 30) {
+  // Lembretes que venceram viram avisos antes de listar (se falhar, os avisos aparecem mesmo assim)
+  await deliverDueReminders().catch((err) => console.error("[lembretes] erro ao entregar:", err instanceof Error ? err.message : err));
   const all = seesAllStores(session);
   return sql<Notice>(
-    `SELECT a.id, a.titulo, a.mensagem, a.codemp, a.autor_nome AS "autorNome", a.autor_papel AS "autorPapel",
+    `SELECT a.id, a.titulo, a.mensagem, a.codemp, a.autor_nome AS "autorNome", a.autor_papel AS "autorPapel", a.papel,
             a.criado_em AS "criadoEm", (v.visto_em IS NULL OR a.criado_em > v.visto_em) AS novo
        FROM painel.aviso a
        LEFT JOIN painel.aviso_visto v ON v.usuario = $1
-      WHERE $2::boolean OR a.codemp IS NULL OR a.codemp = $3
+      WHERE ($2::boolean OR a.codemp IS NULL OR a.codemp = $3)
+        -- aviso para um papel (ex.: lembrete da diretoria) só aparece para ele; o admin vê todos
+        AND (a.papel IS NULL OR a.papel = $5 OR $5 = 'admin')
       ORDER BY a.criado_em DESC
       LIMIT $4`,
-    [userKey(session), all, session.codemp, max],
+    [userKey(session), all, session.codemp, max, session.role],
   );
 }
 

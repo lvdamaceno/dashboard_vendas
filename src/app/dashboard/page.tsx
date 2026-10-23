@@ -14,7 +14,7 @@ import { getInsights, SUMIDO_COMPRAS, SUMIDO_DIAS, type InsightPromises, type Ve
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
 import { masterExists, listNotices, type Notice } from "@/lib/painel";
 import { listPeopleForAdmin } from "@/lib/people";
-import { getDashboardData, getStores, getTeam, type Person, type Summary } from "@/lib/sales";
+import { getDashboardData, getStores, getTeam, netSales, type Person, type Summary } from "@/lib/sales";
 import { SankhyaError } from "@/lib/sankhya/client";
 import { getSession, isManagerial, seesAllStores, viewSession, type Session } from "@/lib/session";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -58,6 +58,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   // Indicadores complementares: cada um chega por conta própria e aparece quando fica pronto
   // (Suspense), sem segurar o resto da tela
   const insights = getInsights(view, period, vendedor);
+  // Diretoria e admin: o mesmo período do ano passado, para ver o crescimento. Só até a data de hoje:
+  // o período "mês" vai até o fim do mês, e comparar com o mês inteiro do ano passado seria injusto
+  const ateHoje = period.to > todayIso() ? todayIso() : period.to;
+  const yoy = allStores
+    ? netSales(view, lastYear(period.from), lastYear(ateHoje), vendedor).catch((err): number | null => {
+        console.error("[dashboard] ano passado:", err instanceof Error ? err.message : err);
+        return null;
+      })
+    : Promise.resolve(null);
 
   const storesP = isManagerial(session) ? optional("lojas", getStores) : Promise.resolve([]);
   // Metas do mês atual (independem do período escolhido); se falhar, o bloco não aparece
@@ -176,7 +185,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       </Suspense>
 
       <Suspense fallback={<SkeletonRow />}>
-        <SecondaryKpis insights={insights} atual={atual} anterior={anterior} prevLabel={period.prevLabel} />
+        <SecondaryKpis insights={insights} atual={atual} anterior={anterior} prevLabel={period.prevLabel} yoy={yoy} ano={Number(period.from.slice(0, 4)) - 1} />
       </Suspense>
 
       {series.length > 1 && (
@@ -227,7 +236,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       )}
 
       <Suspense fallback={null}>
-        <Await promise={goals}>{(g) => g?.detalhe && <GoalTable titulo={g.detalhe.titulo} linhas={g.detalhe.linhas} hojeUtil={g.hojeUtil} />}</Await>
+        <Await promise={goals}>
+          {(g) => g?.detalhes.map((d) => <GoalTable key={d.titulo} titulo={d.titulo} linhas={d.linhas} hojeUtil={g.hojeUtil} />)}
+        </Await>
       </Suspense>
 
       {isManager && !vendedor && (
@@ -294,11 +305,34 @@ async function Await<T>({ promise, children }: { promise: Promise<T>; children: 
   return children(await promise);
 }
 
+/** Mesma data um ano antes (29/02 vira 28/02). */
+function lastYear(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y - 1, m - 1, d));
+  if (dt.getUTCMonth() !== m - 1) dt.setUTCDate(0);
+  return dt.toISOString().slice(0, 10);
+}
+
 const devolucao = (x: Summary) => (x.total + x.devolucoes ? x.devolucoes / (x.total + x.devolucoes) : 0);
 
 /** Segunda linha de indicadores (peças, desconto, devolução, clientes novos e margem). */
-async function SecondaryKpis({ insights, atual, anterior, prevLabel }: { insights: InsightPromises; atual: Summary; anterior: Summary; prevLabel: string }) {
-  const [vendedores, clientes, margem] = await Promise.all([insights.vendedores, insights.clientes, insights.margem]);
+async function SecondaryKpis({
+  insights,
+  atual,
+  anterior,
+  prevLabel,
+  yoy,
+  ano,
+}: {
+  insights: InsightPromises;
+  atual: Summary;
+  anterior: Summary;
+  prevLabel: string;
+  /** faturamento líquido do mesmo período do ano passado (só diretoria e admin) */
+  yoy: Promise<number | null>;
+  ano: number;
+}) {
+  const [vendedores, clientes, margem, anoPassado] = await Promise.all([insights.vendedores, insights.clientes, insights.margem, yoy]);
   // Cada indicador some sozinho se a consulta dele falhar
   const itens = vendedores && { atual: totals(vendedores.atual), anterior: totals(vendedores.anterior) };
   const margemPct = (m: NonNullable<typeof margem>["atual"]) => (m.receita ? (m.receita - m.custo) / m.receita : 0);
@@ -344,6 +378,16 @@ async function SecondaryKpis({ insights, atual, anterior, prevLabel }: { insight
           current={clientes.novos}
           prevLabel={prevLabel}
           note={`${number(clientes.total - clientes.novos)} já compravam antes`}
+          noteTone="neutral"
+        />
+      )}
+      {anoPassado !== null && (
+        <KpiCard
+          label={`Crescimento vs ${ano}`}
+          value={anoPassado ? `${atual.total >= anoPassado ? "+" : ""}${percent((atual.total - anoPassado) / Math.abs(anoPassado))}` : "—"}
+          current={atual.total}
+          prevLabel={`o mesmo período de ${ano}`}
+          note={`${money(anoPassado)} no mesmo período de ${ano}`}
           noteTone="neutral"
         />
       )}

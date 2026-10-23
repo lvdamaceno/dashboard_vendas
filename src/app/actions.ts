@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
 import { fetchContact } from "@/lib/sankhya/contact";
+import { photoVersion } from "@/lib/fila";
 import { findMaster, getPhoneOverrides } from "@/lib/painel";
 import { formatPhone } from "@/lib/phone";
 import { cookies } from "next/headers";
@@ -82,7 +83,18 @@ export async function logout() {
 }
 
 export type BusinessCard =
-  | { ok: true; codvend: number; nome: string; cargo: string; telefone: string | null; doApp: boolean; whatsapp: string | null; qrSvg: string | null }
+  | {
+      ok: true;
+      codvend: number;
+      nome: string;
+      cargo: string;
+      telefone: string | null;
+      doApp: boolean;
+      whatsapp: string | null;
+      qrSvg: string | null;
+      /** Versão da foto enviada na fila (null = sem foto) */
+      foto: number | null;
+    }
   | { ok: false; error: string };
 
 // Primeiro e último nome, para caber no cartão
@@ -99,12 +111,14 @@ export async function getBusinessCard(): Promise<BusinessCard> {
 
   try {
     // Telefone atualizado pelo app tem prioridade; sem ele, vale o do Sankhya
-    const [contact, overrides] = await Promise.all([
+    const [contact, overrides, foto] = await Promise.all([
       fetchContact(session.codemp, session.codfunc),
       getPhoneOverrides([session.codvend]).catch((err) => {
         console.error("[cartao] telefones do app:", err instanceof Error ? err.message : err);
         return new Map();
       }),
+      // A mesma foto da fila de atendimento, se o vendedor enviou
+      photoVersion(session.codvend).catch(() => null),
     ]);
     const telefone: string | null = overrides.get(session.codvend)?.telefone ?? contact.telefone;
     const whatsapp = telefone ? `https://wa.me/55${telefone}` : null;
@@ -115,6 +129,7 @@ export async function getBusinessCard(): Promise<BusinessCard> {
       cargo: session.role === "gerente" ? "Gerente" : "Vendedor",
       telefone: telefone ? formatPhone(telefone) : null,
       doApp: overrides.has(session.codvend),
+      foto,
       whatsapp,
       qrSvg: whatsapp
         ? await QRCode.toString(whatsapp, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#b0141b", light: "#ffffff" } })

@@ -218,7 +218,8 @@ export function getInsights(session: Session, period: Period, vendedor?: number)
       return [...byHour.values()].sort((a, b) => a.hora - b.hora);
     }),
     // Não depende do período escolhido: olha o último ano até hoje
-    safe("clientes sumidos", async () => {
+    // Diretoria (master) não usa esta lista: nem consulta
+    session.role === "master" ? Promise.resolve(null) : safe("clientes sumidos", async () => {
       const clauses = [
         isVenda(),
         serieValida("CAB"),

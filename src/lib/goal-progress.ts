@@ -24,6 +24,10 @@ export interface GoalLine {
   metaHoje: number | null;
   /** faturamento esperado no fim do mês, no ritmo atual (por dia útil) */
   projecao: number;
+  /** quanto vender por dia útil, depois de hoje, para bater a meta (null: não restam dias ou já bateu) */
+  ritmoNecessario: number | null;
+  /** loja da pessoa (na lista de vendedores de todas as lojas) */
+  loja?: string;
 }
 
 export interface GoalProgress {
@@ -33,8 +37,10 @@ export interface GoalProgress {
   restantes: number;
   hojeUtil: boolean;
   principal: GoalLine;
-  /** Detalhe por vendedor (loja) ou por loja (todas as lojas) */
-  detalhe: { titulo: string; linhas: GoalLine[] } | null;
+  /** dias úteis depois de hoje (para o ritmo necessário) */
+  diasDepoisDeHoje: number;
+  /** Listas de detalhe: por vendedor (loja) ou por loja e por vendedor (todas as lojas) */
+  detalhes: { titulo: string; linhas: GoalLine[] }[];
 }
 
 export async function getGoalProgress(view: Session, stores: { codigo: number; nome: string }[], vendedor?: number): Promise<GoalProgress | null> {
@@ -57,10 +63,12 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
   const hojeUtil = calendario.dias.includes(today);
   const decorridos = passados + (hojeUtil ? 1 : 0);
 
+  const depois = n - decorridos;
   const line = (chave: number, nome: string, meta: number, realizado: number, hoje: number): GoalLine => {
     const base = meta / n;
     const saldo = realizado - hoje - base * passados;
     return {
+      ritmoNecessario: depois > 0 && realizado < meta ? (meta - realizado) / depois : null,
       chave,
       nome,
       meta,
@@ -74,7 +82,7 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
   };
   const sum = (rows: typeof vendas) => ({ total: rows.reduce((a, r) => a + r.total, 0), hoje: rows.reduce((a, r) => a + r.hoje, 0) });
   const byRatio = (a: GoalLine, b: GoalLine) => b.realizado / b.meta - a.realizado / a.meta;
-  const base = { mes, diasUteis: n, restantes: n - decorridos, hojeUtil };
+  const base = { mes, diasUteis: n, restantes: n - decorridos, hojeUtil, diasDepoisDeHoje: depois };
 
   // Vendedor: a meta individual da loja em que foi considerado, com as vendas dele nessa loja
   if (view.role === "vendedor") {
@@ -82,7 +90,7 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
     const meta = eu ? metas.get(eu.codemp)?.vendedor : null;
     if (!eu || !meta) return null;
     const s = sum(vendas.filter((v) => v.codemp === eu.codemp));
-    return { ...base, principal: line(view.codvend, view.apelido, meta, s.total, s.hoje), detalhe: null };
+    return { ...base, principal: line(view.codvend, view.apelido, meta, s.total, s.hoje), detalhes: [] };
   }
 
   // Todas as lojas: soma das metas das lojas, com o detalhe por loja
@@ -97,7 +105,20 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
     if (!linhas.length) return null;
     const s = sum(vendas);
     const meta = linhas.reduce((a, l) => a + l.meta, 0);
-    return { ...base, principal: line(0, "Todas as lojas", meta, s.total, s.hoje), detalhe: { titulo: "Metas por loja", linhas } };
+    // Todas as pessoas consideradas, de todas as lojas, num ranking só (vendas de cada uma na loja dela)
+    const nomeLoja = (codemp: number) => stores.find((x) => x.codigo === codemp)?.nome.replace(/^CASA CONTENTE - /i, "") ?? `Loja ${codemp}`;
+    const pessoasLinhas = pessoas
+      .filter((p) => metas.get(p.codemp)?.vendedor)
+      .map((p) => {
+        const t = sum(vendas.filter((v) => v.codemp === p.codemp && v.codvend === p.codvend));
+        return { ...line(p.codvend, p.nome, metas.get(p.codemp)!.vendedor!, t.total, t.hoje), loja: nomeLoja(p.codemp) };
+      })
+      .sort(byRatio);
+    return {
+      ...base,
+      principal: line(0, "Todas as lojas", meta, s.total, s.hoje),
+      detalhes: [{ titulo: "Metas por loja", linhas }, ...(pessoasLinhas.length ? [{ titulo: "Metas por vendedor (todas as lojas)", linhas: pessoasLinhas }] : [])],
+    };
   }
 
   // Uma loja (gerente, ou master/admin com loja escolhida)
@@ -117,7 +138,7 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
 
   if (vendedor) {
     const propria = individuais.find((l) => l.chave === vendedor);
-    return propria ? { ...base, principal: propria, detalhe: null } : null;
+    return propria ? { ...base, principal: propria, detalhes: [] } : null;
   }
   const s = sum(vendas);
   // Sem meta da loja, o resumo usa a soma das metas dos vendedores
@@ -126,6 +147,6 @@ export async function getGoalProgress(view: Session, stores: { codigo: number; n
   return {
     ...base,
     principal: line(0, "Loja", metaTotal, s.total, s.hoje),
-    detalhe: individuais.length ? { titulo: "Metas da equipe", linhas: individuais } : null,
+    detalhes: individuais.length ? [{ titulo: "Metas da equipe", linhas: individuais }] : [],
   };
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { createReminder, deleteReminder, setReminderActive } from "@/lib/lembretes";
 import { addMaster, deleteNotice, getMaster, removeMaster, setFeedbackDone } from "@/lib/painel";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { personView } from "@/lib/sales";
@@ -131,4 +132,71 @@ export async function stopViewAs() {
   const { como: _, ...admin } = session;
   await createSession(admin);
   redirect("/dashboard");
+}
+
+// --- lembretes recorrentes (viram avisos no sino do público escolhido) ---
+
+const reminderSchema = z
+  .object({
+    titulo: z.string().trim().min(1, "Informe o título").max(120),
+    mensagem: z.string().trim().min(1, "Escreva a mensagem").max(2000),
+    publico: z.enum(["master", "gerente", "vendedor", "todos"]),
+    recorrencia: z.enum(["mensal", "semanal", "diaria", "unica"]),
+    diaMes: z.coerce.number().int().min(1).max(31).optional(),
+    diaSemana: z.coerce.number().int().min(0).max(6).optional(),
+    data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  })
+  .refine((r) => r.recorrencia !== "mensal" || r.diaMes, "Escolha o dia do mês")
+  .refine((r) => r.recorrencia !== "semanal" || r.diaSemana !== undefined, "Escolha o dia da semana")
+  .refine((r) => r.recorrencia !== "unica" || r.data, "Escolha a data");
+
+export async function addReminder(_prev: AdminState, form: FormData): Promise<AdminState> {
+  await requireAdmin();
+  const val = (k: string) => {
+    const v = form.get(k);
+    return v === null || v === "" ? undefined : String(v);
+  };
+  const parsed = reminderSchema.safeParse({
+    titulo: val("titulo") ?? "",
+    mensagem: val("mensagem") ?? "",
+    publico: val("publico"),
+    recorrencia: val("recorrencia"),
+    diaMes: val("diaMes"),
+    diaSemana: val("diaSemana"),
+    data: val("data"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const r = parsed.data;
+  try {
+    await createReminder({
+      titulo: r.titulo,
+      mensagem: r.mensagem,
+      publico: r.publico,
+      recorrencia: r.recorrencia,
+      dia: r.recorrencia === "mensal" ? r.diaMes! : r.recorrencia === "semanal" ? r.diaSemana! : null,
+      data: r.recorrencia === "unica" ? r.data! : null,
+    });
+    console.info(`[admin] lembrete criado: "${r.titulo}" (${r.recorrencia}, ${r.publico})`);
+  } catch (err) {
+    console.error("[admin] erro ao criar lembrete:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível salvar. Tente novamente." };
+  }
+  refresh();
+  return { ok: true };
+}
+
+export async function toggleReminder(form: FormData) {
+  await requireAdmin();
+  const parsed = id.safeParse(form.get("id"));
+  if (!parsed.success) return;
+  await setReminderActive(parsed.data, form.get("ativo") === "1");
+  refresh();
+}
+
+export async function removeReminder(form: FormData) {
+  await requireAdmin();
+  const parsed = id.safeParse(form.get("id"));
+  if (!parsed.success) return;
+  await deleteReminder(parsed.data);
+  refresh();
 }

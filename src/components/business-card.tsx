@@ -62,8 +62,18 @@ export function BusinessCard() {
               className={`relative size-full transition-transform duration-500 transform-3d motion-reduce:transition-none ${flipped ? "rotate-y-180" : ""}`}
             >
               {/* Verso, com nome e telefone. Cores fixas da marca (não mudam com o tema escuro) */}
-              <div className="absolute inset-0 flex rotate-y-180 flex-col items-center justify-center gap-6 rounded-3xl bg-[#fdb917] px-6 text-center text-[#b0141b] shadow-2xl backface-hidden">
-                <Logo variant="seal" className="w-44 rounded-xl" title="Casa Contente" />
+              <div
+                className={`absolute inset-0 flex rotate-y-180 flex-col items-center justify-center rounded-3xl bg-[#fdb917] px-6 text-center text-[#b0141b] shadow-2xl backface-hidden ${card.foto ? "gap-4" : "gap-6"}`}
+              >
+                <Logo variant="seal" className={`${card.foto ? "w-36" : "w-44"} rounded-xl`} title="Casa Contente" />
+                {/* Foto enviada na fila de atendimento, quando houver */}
+                {card.foto && (
+                  <img
+                    src={`/api/foto/${card.codvend}?v=${card.foto}`}
+                    alt={`Foto de ${card.nome}`}
+                    className="size-28 rounded-full border-4 border-white object-cover shadow-md"
+                  />
+                )}
                 <div>
                   <p className="font-title text-3xl leading-tight font-semibold text-[#d71921] uppercase">{card.nome}</p>
                   <p className="mt-1 font-title text-sm font-medium tracking-widest uppercase">{card.cargo}</p>
