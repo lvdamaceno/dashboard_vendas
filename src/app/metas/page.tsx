@@ -15,6 +15,8 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 
+const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function shiftMonth(mes: string, delta: number) {
   const [y, m] = mes.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1 + delta, 1)).toISOString().slice(0, 7);
@@ -87,7 +89,7 @@ export default async function GoalsPage({ searchParams }: { searchParams: Search
           <Link href={`/metas?mes=${shiftMonth(mes, -1)}`} aria-label="Mês anterior" className={nav}>
             ‹
           </Link>
-          <span className="min-w-40 text-center font-title font-medium capitalize">{monthName.format(new Date(`${mes}-01T00:00:00Z`))}</span>
+          <span className="min-w-40 text-center font-title font-medium">{upperFirst(monthName.format(new Date(`${mes}-01T00:00:00Z`)))}</span>
           <Link href={`/metas?mes=${shiftMonth(mes, 1)}`} aria-label="Próximo mês" className={nav}>
             ›
           </Link>

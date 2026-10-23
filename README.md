@@ -2,7 +2,8 @@
 
 Dashboard mobile-first para vendedores e gerentes acompanharem suas vendas.
 Os dados de vendas vêm direto do Sankhya via API e não são armazenados. O que o Sankhya não tem
-(usuários master, avisos e sugestões) fica num Postgres (schema `painel`, ver abaixo).
+(fila de atendimento, metas, feriados, avisos, lembretes, sugestões, usuários master, telefones e fotos)
+fica num Postgres (schema `painel`, ver abaixo).
 
 **Stack:** Next.js 16 (App Router, Server Components/Actions) · TypeScript · Tailwind 4 · Recharts.
 
@@ -16,9 +17,27 @@ Capturas do sistema rodando com dados fictícios (nomes, valores e telefone inve
 |:---:|:---:|:---:|
 | <img src="docs/telas/login.png" width="240" alt="Tela de entrada com o campo CPF"> | <img src="docs/telas/painel-celular.png" width="240" alt="Painel no celular com indicadores e gráfico"> | <img src="docs/telas/ajuda.png" width="240" alt="Guia de uso em formato de stories"> |
 
-| Cartão de visita: QR code | Cartão de visita: nome e telefone |
+| Cartão de visita: QR code | Cartão de visita: nome, telefone e foto |
 |:---:|:---:|
-| <img src="docs/telas/cartao-qr.png" width="240" alt="Cartão com QR code do WhatsApp"> | <img src="docs/telas/cartao-nome.png" width="240" alt="Cartão com nome, cargo e telefone"> |
+| <img src="docs/telas/cartao-qr.png" width="240" alt="Cartão com QR code do WhatsApp"> | <img src="docs/telas/cartao-foto.png" width="240" alt="Cartão com foto, nome, cargo e telefone"> |
+
+### Fila de atendimento, metas e avisos (celular)
+
+| Fila de atendimento (`/fila`) | Como a fila funciona | Meta do mês e meta de hoje | Sino de avisos |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/telas/fila.png" width="200" alt="Fila de atendimento com a lista de vendedores, o próximo a atender em destaque e a foto de cada um"> | <img src="docs/telas/fila.gif" width="200" alt="Animação: entrar na fila, chegar a vez, atender e terminar"> | <img src="docs/telas/metas-vendedor.png" width="200" alt="Quadros Meta do mês e Meta de hoje com saldo"> | <img src="docs/telas/avisos.png" width="200" alt="Janela de avisos com avisos novos"> |
+
+### Diretoria e admin (computador)
+
+![Metas do mês por loja: meta da loja, meta por vendedor e pessoas consideradas](docs/telas/metas.png)
+
+| Feriados e dias úteis (`/feriados`) | Saúde do app (admin) |
+|:---:|:---:|
+| <img src="docs/telas/feriados.png" width="420" alt="Feriados do ano com a opção A loja abre, criar feriado e domingo com expediente"> | <img src="docs/telas/admin-saude.png" width="420" alt="Saúde do app: status, conexões, servidor, uso e logs com busca"> |
+
+| Lembretes (admin) |
+|:---:|
+| <img src="docs/telas/admin-lembretes.png" width="640" alt="Lembretes recorrentes para diretoria, gerentes e vendedores"> |
 
 ## Rodando
 

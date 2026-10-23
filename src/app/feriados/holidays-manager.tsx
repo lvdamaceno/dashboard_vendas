@@ -8,7 +8,11 @@ import { env } from "@/lib/env";
 const card = "rounded-3xl border border-line bg-surface p-5";
 const small = "h-9 shrink-0 rounded-full border border-line px-4 text-sm font-medium hover:bg-bg-alt";
 const fmtDay = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", timeZone: "UTC" });
-const dia = (d: string) => fmtDay.format(new Date(`${d}T12:00:00Z`));
+// Só a primeira letra maiúscula ("Quinta-feira, 01 de janeiro"); o CSS capitalize deixaria "De" e "Janeiro"
+const dia = (d: string) => {
+  const s = fmtDay.format(new Date(`${d}T12:00:00Z`));
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 
 /** Feriados do ano (calendário calculado + ajustes): usado na área de metas e na aba do admin. */
 export async function HolidaysManager({ ano, yearHref }: { ano: number; yearHref: (ano: number) => string }) {
@@ -48,7 +52,7 @@ export async function HolidaysManager({ ano, yearHref }: { ano: number; yearHref
               <li key={h.dia} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className={`font-medium ${abre ? "text-ink-3 line-through" : ""}`}>{h.nome}</p>
-                  <p className="text-xs text-ink-3 capitalize">{dia(h.dia)}</p>
+                  <p className="text-xs text-ink-3">{dia(h.dia)}</p>
                 </div>
                 {abre && <span className="rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-good">Loja abre</span>}
                 <form action={abre ? resetHoliday : openOnHoliday}>
@@ -73,7 +77,7 @@ export async function HolidaysManager({ ano, yearHref }: { ano: number; yearHref
               <li key={c.dia} className="flex items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{c.nome}</p>
-                  <p className="text-xs text-ink-3 capitalize">{dia(c.dia)}</p>
+                  <p className="text-xs text-ink-3">{dia(c.dia)}</p>
                 </div>
                 <form action={resetHoliday}>
                   <input type="hidden" name="dia" value={c.dia} />
@@ -99,7 +103,7 @@ export async function HolidaysManager({ ano, yearHref }: { ano: number; yearHref
               <li key={c.dia} className="flex items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{c.nome}</p>
-                  <p className="text-xs text-ink-3 capitalize">{dia(c.dia)}</p>
+                  <p className="text-xs text-ink-3">{dia(c.dia)}</p>
                 </div>
                 <form action={resetHoliday}>
                   <input type="hidden" name="dia" value={c.dia} />
