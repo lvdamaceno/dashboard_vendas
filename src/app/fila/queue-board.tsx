@@ -16,10 +16,35 @@ interface Props {
   role: Session["role"];
   /** Vendedor que está vendo: para a foto */
   me: { codvend: number; nome: string; foto: number | null } | null;
-  /** Loja escolhida (master/admin) */
+  /** Loja da fila, para as ações e a atualização (master/admin; o vendedor e o gerente usam a da sessão) */
   loja?: number;
   lojaNome?: string;
+  /** Seletor de loja (master e admin); vazio = sem seletor */
   stores: { codigo: number; nome: string }[];
+  /** Admin: o seletor tem "Todas as lojas" (ver todas as filas de uma vez) */
+  allOption?: boolean;
+  /** Versão resumida, para a tela com todas as filas: só a lista, com o nome da loja no título */
+  compact?: boolean;
+}
+
+/** Seletor de loja da fila (master e admin). */
+export function StorePicker({ stores, loja, allOption }: { stores: { codigo: number; nome: string }[]; loja?: number; allOption?: boolean }) {
+  const router = useRouter();
+  return (
+    <select
+      aria-label="Loja"
+      value={loja ?? ""}
+      onChange={(e) => router.push(e.target.value ? `/fila?loja=${e.target.value}` : "/fila")}
+      className="h-11 w-full rounded-full border border-line bg-surface px-4 text-base md:w-72 md:text-sm"
+    >
+      <option value="">{allOption ? "Todas as lojas" : "Escolha a loja"}</option>
+      {stores.map((s) => (
+        <option key={s.codigo} value={s.codigo}>
+          {s.nome}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 const button = "h-12 rounded-full px-6 font-title text-base font-medium transition disabled:opacity-60";
@@ -55,7 +80,7 @@ export function Avatar({ codvend, nome, versao, size = "size-12" }: { codvend: n
 }
 
 /** Fila de atendimento da loja: atualiza sozinha em todas as telas abertas. */
-export function QueueBoard({ initial, error: initialError, role, me, loja, lojaNome, stores }: Props) {
+export function QueueBoard({ initial, error: initialError, role, me, loja, lojaNome, stores, allOption, compact }: Props) {
   const router = useRouter();
   const [view, setView] = useState(initial);
   const [error, setError] = useState(initialError);
@@ -116,33 +141,21 @@ export function QueueBoard({ initial, error: initialError, role, me, loja, lojaN
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl">Fila de atendimento</h1>
-          <p className="text-sm text-ink-3">
-            {lojaNome ?? "Escolha a loja"} · zera todo dia às 7h
-          </p>
+      {!compact && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl">Fila de atendimento</h1>
+            <p className="text-sm text-ink-3">
+              {lojaNome ?? "Escolha a loja"} · zera todo dia às 7h
+            </p>
+          </div>
+          <Link href="/dashboard" className="h-10 rounded-full border border-line bg-surface px-4 font-title text-sm leading-10 font-medium text-ink-2 hover:bg-bg-alt">
+            Voltar ao painel
+          </Link>
         </div>
-        <Link href="/dashboard" className="h-10 rounded-full border border-line bg-surface px-4 font-title text-sm leading-10 font-medium text-ink-2 hover:bg-bg-alt">
-          Voltar ao painel
-        </Link>
-      </div>
-
-      {stores.length > 0 && (
-        <select
-          aria-label="Loja"
-          value={loja ?? ""}
-          onChange={(e) => router.push(e.target.value ? `/fila?loja=${e.target.value}` : "/fila")}
-          className="h-11 w-full rounded-full border border-line bg-surface px-4 text-base md:w-72 md:text-sm"
-        >
-          <option value="">Escolha a loja</option>
-          {stores.map((s) => (
-            <option key={s.codigo} value={s.codigo}>
-              {s.nome}
-            </option>
-          ))}
-        </select>
       )}
+
+      {!compact && stores.length > 0 && <StorePicker stores={stores} loja={loja} allOption={allOption} />}
 
       {error && (
         <p role="alert" className="rounded-2xl bg-accent-soft px-4 py-3 text-sm text-bad">
@@ -194,7 +207,7 @@ export function QueueBoard({ initial, error: initialError, role, me, loja, lojaN
       {view && (
         <section className="overflow-hidden rounded-3xl border border-line bg-surface">
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <h2 className="text-base">Na fila agora</h2>
+            <h2 className="text-base">{compact ? lojaNome : "Na fila agora"}</h2>
             <span className="text-xs text-ink-3">
               {esperando.length} esperando · {fila.length - esperando.length} atendendo
             </span>
@@ -252,7 +265,7 @@ export function QueueBoard({ initial, error: initialError, role, me, loja, lojaN
         </section>
       )}
 
-      {me && <PhotoPicker me={me} onChanged={() => router.refresh()} />}
+      {me && !compact && <PhotoPicker me={me} onChanged={() => router.refresh()} />}
     </div>
   );
 }

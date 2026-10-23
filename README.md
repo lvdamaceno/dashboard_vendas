@@ -260,7 +260,9 @@ Botão **Fila** ao lado dos filtros do painel. Uma fila por loja por dia, em `pa
 - **Vendedor:** *Entrar na fila* → espera; o primeiro que está esperando aparece como **Próximo a atender**.
   *Atender cliente* marca como atendendo e manda para o **fim da fila**; *Terminei o atendimento* volta a esperar
   nessa posição. *Sair da fila* tira.
-- **Gerente da loja:** vê a fila, muda a ordem (↑ ↓) e tira alguém (×). Master e admin fazem o mesmo escolhendo a loja.
+- **Gerente da loja:** vê só a fila da loja dele (sem seletor), muda a ordem (↑ ↓) e tira alguém (×). O master escolhe a
+  loja; o **admin** vê **todas as filas de uma vez** (cada uma editável e atualizando sozinha) ou uma loja escolhida. O admin
+  vendo o painel de um gerente ou vendedor vê a fila da loja dessa pessoa, com os controles de gerente.
 - **Atualização:** a tela busca `/api/fila` a cada 4 s (só com a tela visível) e na hora depois de cada ação.
 - **Foto:** o vendedor envia a própria foto; o navegador recorta e reduz para JPEG 256×256 antes de enviar. O servidor
   confere que é JPEG (pelo conteúdo) e aceita até 300 KB. Fica em `painel.foto`, **uma por vendedor**: a nova substitui
