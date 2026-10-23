@@ -23,6 +23,11 @@ const schema = z.object({
   // TOPs (TGFCAB.CODTIPOPER) que contam como venda e como devolução
   SALES_TOPS_VENDA: list(/^\d{1,9}$/).transform((v) => (v.length ? v : ["1110", "1101", "1105", "1112", "1181"]).map(Number)),
   SALES_TOPS_DEVOLUCAO: list(/^\d{1,9}$/).transform((v) => (v.length ? v : ["1201"]).map(Number)),
+  // Coluna de custo (TGFCUS) usada na margem bruta do gerente
+  MARGEM_CUSTO: z
+    .string()
+    .regex(/^CUS[A-Z]{2,10}$/, "nome de coluna de TGFCUS, ex.: CUSGER")
+    .default("CUSGER"),
 });
 
 export type Env = z.infer<typeof schema>;

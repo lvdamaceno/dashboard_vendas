@@ -13,7 +13,7 @@ import { date, dayKey, inList, int, limit } from "./sankhya/sql";
  * O filtro opcional de vendedor do gerente é somado (AND) à restrição, então
  * nunca amplia o que ele pode ver.
  */
-function scopeWhere(session: Session, vendedor?: number) {
+export function scopeWhere(session: Session, vendedor?: number) {
   if (session.role === "vendedor") return [`CAB.CODVEND = ${int(session.codvend)}`];
 
   const clauses = [`CAB.CODEMP = ${int(session.codemp)}`];
@@ -22,12 +22,12 @@ function scopeWhere(session: Session, vendedor?: number) {
 }
 
 // Vendas somam, devoluções (na data em que ocorreram) subtraem
-const isVenda = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_VENDA)})`;
-const isDevolucao = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_DEVOLUCAO)})`;
-const sign = () => `(CASE WHEN ${isDevolucao()} THEN -1 ELSE 1 END)`;
-const countVendas = () => `SUM(CASE WHEN ${isVenda()} THEN 1 ELSE 0 END)`;
+export const isVenda = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_VENDA)})`;
+export const isDevolucao = () => `CAB.CODTIPOPER IN (${inList(env().SALES_TOPS_DEVOLUCAO)})`;
+export const sign = () => `(CASE WHEN ${isDevolucao()} THEN -1 ELSE 1 END)`;
+export const countVendas = () => `SUM(CASE WHEN ${isVenda()} THEN 1 ELSE 0 END)`;
 
-function salesWhere(session: Session, from: string, to: string, vendedor?: number) {
+export function salesWhere(session: Session, from: string, to: string, vendedor?: number) {
   const { SALES_TOPS_VENDA, SALES_TOPS_DEVOLUCAO } = env();
   const clauses = [
     `CAB.CODTIPOPER IN (${inList([...SALES_TOPS_VENDA, ...SALES_TOPS_DEVOLUCAO])})`,
@@ -47,8 +47,8 @@ function addOneDay(iso: string) {
   return d.toISOString().slice(0, 10);
 }
 
-const n = (v: unknown) => (v == null || v === "" ? 0 : Number(v));
-const s = (v: unknown) => (v == null ? "" : String(v).trim());
+export const n = (v: unknown) => (v == null || v === "" ? 0 : Number(v));
+export const s = (v: unknown) => (v == null ? "" : String(v).trim());
 
 export interface Summary {
   /** faturamento líquido (vendas − devoluções) */

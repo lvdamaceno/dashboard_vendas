@@ -5,6 +5,20 @@ Os dados vêm direto do Sankhya via API; nada é armazenado.
 
 **Stack:** Next.js 16 (App Router, Server Components/Actions) · TypeScript · Tailwind 4 · Recharts.
 
+## Telas
+
+Capturas do sistema rodando com dados fictícios (nomes, valores e telefone inventados).
+
+![Painel do gerente no computador](docs/telas/painel-computador.png)
+
+| Entrada com CPF | Painel no celular | Guia de uso (`/ajuda`) |
+|:---:|:---:|:---:|
+| <img src="docs/telas/login.png" width="240" alt="Tela de entrada com o campo CPF"> | <img src="docs/telas/painel-celular.png" width="240" alt="Painel no celular com indicadores e gráfico"> | <img src="docs/telas/ajuda.png" width="240" alt="Guia de uso em formato de stories"> |
+
+| Cartão de visita: QR code | Cartão de visita: nome e telefone |
+|:---:|:---:|
+| <img src="docs/telas/cartao-qr.png" width="240" alt="Cartão com QR code do WhatsApp"> | <img src="docs/telas/cartao-nome.png" width="240" alt="Cartão com nome, cargo e telefone"> |
+
 ## Rodando
 
 ```bash
@@ -61,6 +75,8 @@ reaproveitado e renovado automaticamente antes de expirar.
 
 A página `/ajuda` (pública, com link na tela de login e no `?` do cabeçalho) explica o painel passo a passo
 para quem não é da área de tecnologia, com capturas de tela feitas com dados de exemplo (`public/ajuda/`).
+O conteúdo é dividido em telas curtas no formato de stories (`src/app/ajuda/stories.tsx`): passam sozinhas no
+tempo de leitura, com uma barrinha de progresso por seção no topo; segurar a tela ou o botão de pausa param.
 
 ## Instalar no celular (PWA)
 
@@ -93,6 +109,25 @@ Faturamento, gráfico diário e rankings são **líquidos** (vendas − devoluç
 `VLRTOT − VLRDESC` dos itens com o mesmo sinal. Devoluções aparecem em vermelho/negativo nas
 últimas movimentações e o card de faturamento mostra o total devolvido. "Pedidos", "Clientes"
 e o ticket médio (líquido ÷ pedidos) contam só as vendas.
+
+## Indicadores complementares
+
+Ficam em `src/lib/insights.ts`, com o mesmo escopo de acesso das vendas. Cada um roda numa consulta
+própria: se falhar (ex.: coluna ausente nesta base do Sankhya), só aquele bloco some e o erro vai para o
+log com o prefixo `[indicadores]`.
+
+| Indicador | Como é calculado |
+|---|---|
+| Peças por atendimento | `SUM(TGFITE.QTDNEG)` ÷ notas de venda |
+| Desconto médio | `SUM(TGFITE.VLRDESC)` ÷ `SUM(TGFITE.VLRTOT)` das vendas (desconto lançado nos itens) |
+| Taxa de devolução | devoluções ÷ (faturamento líquido + devoluções), pelo `VLRNOTA` |
+| Clientes novos | clientes do período cuja primeira venda (em qualquer loja) foi dentro do período |
+| Vendas por categoria | itens agrupados por `TGFPRO.CODGRUPOPROD` → `TGFGRU.DESCRGRUPOPROD`, líquidos de devolução |
+| Produtos mais devolvidos | itens das notas de devolução, por produto |
+| Dia da semana / horário | `TGFCAB.DTNEG` e `TGFCAB.HRMOV` (aceita HHMM ou HHMMSS); dia da semana só com período ≥ 7 dias |
+| Clientes para chamar de volta | 3+ vendas nos últimos 365 dias e nenhuma há mais de 60 dias (`CODPARC > 0`), com WhatsApp por `TGFPAR.TELEFONE`; não depende do período escolhido |
+| Indicadores por vendedor (gerente) | peças por atendimento, desconto e devolução (pelos itens) de cada vendedor |
+| Margem bruta (gerente) | (receita − custo) ÷ receita dos itens com custo; custo = registro mais recente de `TGFCUS` até a data da venda, na coluna `MARGEM_CUSTO` (padrão `CUSGER`). Avisa quando falta custo em mais de 5% da receita |
 
 ## Segurança
 

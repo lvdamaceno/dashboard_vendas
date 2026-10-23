@@ -30,6 +30,13 @@ const IMAGES = {
   ultimas: [764, 542],
   "cartao-frente": [640, 1126],
   "cartao-verso": [640, 1126],
+  "mais-indicadores": [764, 780],
+  "por-vendedor": [764, 510],
+  categorias: [764, 756],
+  devolvidos: [764, 444],
+  "dia-semana": [764, 756],
+  horario: [764, 1380],
+  sumidos: [764, 974],
 } as const;
 
 const SECTIONS = [
@@ -40,6 +47,7 @@ const SECTIONS = [
   ["numeros", "Entendendo os números"],
   ["grafico", "O gráfico de vendas por dia"],
   ["listas", "As listas"],
+  ["mais", "Mais indicadores"],
   ["gerentes", "Para gerentes"],
   ["cartao", "Cartão de visita (WhatsApp)"],
   ["instalar", "Instalar no celular"],
@@ -409,6 +417,74 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
       <Shot name="ultimas" alt="Lista das últimas vendas, com uma devolução marcada em vermelho" caption="Devoluções aparecem com a etiqueta “Devolução” e o valor em vermelho, com sinal de menos" />
     </>,
   ],
+  mais: [
+    <>
+      <p>
+        Logo abaixo dos quatro quadros principais ficam <strong>mais indicadores</strong>, que mostram como as vendas estão sendo feitas.
+        Eles também comparam com o período anterior.
+      </p>
+      <Shot name="mais-indicadores" alt="Quadros de peças por atendimento, desconto médio, taxa de devolução, clientes novos e margem bruta" />
+    </>,
+    <div key="termos-1" className="space-y-2">
+      <Term name="Peças por atendimento">
+        Quantas peças, em média, cada cliente levou em uma compra. Se subiu, você está oferecendo mais coisas junto com o que o cliente
+        veio buscar.
+      </Term>
+      <Term name="Desconto médio">
+        Quanto de desconto foi dado, em média, sobre o valor dos produtos. Embaixo aparece o total de descontos em reais.
+      </Term>
+    </div>,
+    <>
+      <div className="space-y-2">
+        <Term name="Taxa de devolução">Quanto do que foi vendido voltou em devolução. Embaixo aparece o valor devolvido.</Term>
+        <Term name="Clientes novos">
+          Quantos clientes compraram <strong>pela primeira vez</strong> no período. Embaixo, quantos já eram clientes antes.
+        </Term>
+      </div>
+      <Tip>
+        No desconto e na devolução, <strong>cair é bom</strong>: por isso a seta para baixo aparece em verde e a seta para cima em
+        vermelho.
+      </Tip>
+    </>,
+    <>
+      <p>
+        <strong>Vendas por categoria</strong> mostra quais tipos de produto mais venderam: cama e banho, cozinha, eletroportáteis e assim
+        por diante.
+      </p>
+      <Shot name="categorias" alt="Lista de vendas por categoria com valor e quantidade" />
+    </>,
+    <>
+      <p>
+        <strong>Produtos mais devolvidos</strong> mostra quais produtos voltaram mais em devolução no período. Ajuda a perceber defeito ou
+        produto que não atende o que o cliente esperava.
+      </p>
+      <Shot name="devolvidos" alt="Lista dos produtos mais devolvidos com valor e quantidade" />
+    </>,
+    <>
+      <p>
+        <strong>Vendas por dia da semana</strong> mostra em quais dias a loja vende mais. Aparece quando o período tem pelo menos uma
+        semana.
+      </p>
+      <Shot name="dia-semana" alt="Lista de vendas de segunda a sábado, com sábado como o dia mais forte" />
+    </>,
+    <>
+      <p>
+        <strong>Vendas por horário</strong> mostra em que horas do dia saem mais vendas. Bom para saber os horários de mais movimento.
+      </p>
+      <Shot name="horario" alt="Lista de vendas por faixa de horário, das 8h às 20h" narrow />
+    </>,
+    <>
+      <p>
+        <strong>Clientes para chamar de volta</strong> lista quem comprou 3 vezes ou mais no último ano e não volta há mais de 60 dias.
+        Essa lista não muda com o período escolhido.
+      </p>
+      <Shot name="sumidos" alt="Lista de clientes que pararam de comprar, com a data da última compra e o botão verde do WhatsApp" />
+    </>,
+    <Tip key="tip">
+      Toque no <strong>botão verde</strong> ao lado do nome para abrir uma conversa com o cliente no WhatsApp. Quando o cadastro do
+      cliente não tem celular, aparece “sem celular”.
+    </Tip>,
+  ],
   gerentes: [
     <>
       <p>Quem é gerente tem duas coisas a mais:</p>
@@ -426,6 +502,22 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     <>
       <p>Para comparação, o vendedor não tem a caixa de escolher vendedor nem o ranking: ele vê só as próprias vendas.</p>
       <Shot name="filtros-vendedor" alt="Botões de período sem a caixa de escolher vendedor" caption="Como o vendedor vê os botões do topo" />
+    </>,
+    <>
+      <p>
+        O gerente também vê os <strong>Indicadores por vendedor</strong>: peças por atendimento, desconto médio e taxa de devolução de
+        cada um, lado a lado.
+      </p>
+      <Shot name="por-vendedor" alt="Tabela com peças por atendimento, desconto e devolução de LUCAS, ANA, BRUNO e CARLA" />
+    </>,
+    <>
+      <Term name="Margem bruta (só gerente)">
+        Quanto sobra das vendas depois de tirar o custo dos produtos. Embaixo aparece esse valor em reais, o lucro bruto.
+      </Term>
+      <Tip kind="atencao">
+        A margem depende do <strong>custo cadastrado</strong> de cada produto. Se faltar custo em parte das vendas, o quadro avisa
+        embaixo quanto ficou de fora.
+      </Tip>
     </>,
   ],
   cartao: [

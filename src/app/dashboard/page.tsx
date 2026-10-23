@@ -2,10 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Filters } from "@/components/filters";
 import { KpiCard } from "@/components/kpi-card";
+import { LostClients } from "@/components/lost-clients";
 import { OrdersTable } from "@/components/orders-table";
 import { pedidosLabel, RankList } from "@/components/rank-list";
 import { SalesChart } from "@/components/sales-chart";
-import { money, number } from "@/lib/format";
+import { VendorTable } from "@/components/vendor-table";
+import { money, number, percent } from "@/lib/format";
+import { getInsights, type Insights, type VendorStats } from "@/lib/insights";
 import { addDays, daysBetween, formatDay, resolvePeriod, todayIso } from "@/lib/period";
 import { getDashboardData, getTeam, type DashboardData } from "@/lib/sales";
 import { SankhyaError } from "@/lib/sankhya/client";
@@ -30,8 +33,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
   let data: DashboardData;
   let team: Awaited<ReturnType<typeof getTeam>>;
+  let insights: Insights;
   try {
-    [data, team] = await Promise.all([getDashboardData(session, period, vendedor), getTeam(session)]);
+    [data, team, insights] = await Promise.all([getDashboardData(session, period, vendedor), getTeam(session), getInsights(session, period, vendedor)]);
   } catch (err) {
     if (err instanceof SankhyaError && err.code === "SESSION_EXPIRED") redirect("/sessao-expirada");
     console.error("[dashboard]", err);
@@ -64,6 +68,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const { atual, anterior } = data;
   const vendedorNome = vendedor ? team.find((t) => t.codigo === vendedor)?.nome : undefined;
 
+  // Indicadores complementares (cada um some sozinho se a consulta dele falhar)
+  const itens = insights.vendedores && { atual: totals(insights.vendedores.atual), anterior: totals(insights.vendedores.anterior) };
+  const devolucao = (x: typeof atual) => (x.total + x.devolucoes ? x.devolucoes / (x.total + x.devolucoes) : 0);
+  const margem = insights.margem;
+  const margemPct = (m: NonNullable<typeof margem>["atual"]) => (m.receita ? (m.receita - m.custo) / m.receita : 0);
+  const showWeek = daysBetween(period.from, period.to) >= 7;
+
   return (
     <Shell session={session}>
       <Filters
@@ -94,6 +105,66 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <KpiCard label="Pedidos" value={number(atual.pedidos)} current={atual.pedidos} previous={anterior.pedidos} prevLabel={period.prevLabel} />
         <KpiCard label="Ticket médio" value={money(atual.ticket)} current={atual.ticket} previous={anterior.ticket} prevLabel={period.prevLabel} />
         <KpiCard label="Clientes" value={number(atual.clientes)} current={atual.clientes} previous={anterior.clientes} prevLabel={period.prevLabel} />
+      </div>
+
+      <div className={`grid grid-cols-2 gap-3 ${margem ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+        {itens && (
+          <>
+            <KpiCard
+              label="Peças por atendimento"
+              value={number(Math.round(itens.atual.pecasPorPedido * 10) / 10)}
+              current={itens.atual.pecasPorPedido}
+              previous={itens.anterior.pecasPorPedido}
+              prevLabel={period.prevLabel}
+            />
+            <KpiCard
+              label="Desconto médio"
+              value={percent(itens.atual.desconto)}
+              current={itens.atual.desconto}
+              previous={itens.anterior.desconto}
+              prevLabel={period.prevLabel}
+              note={itens.atual.descontoValor > 0 ? `${money(itens.atual.descontoValor)} em descontos` : undefined}
+              noteTone="neutral"
+              lowerIsBetter
+            />
+          </>
+        )}
+        <KpiCard
+          label="Taxa de devolução"
+          value={percent(devolucao(atual))}
+          current={devolucao(atual)}
+          previous={devolucao(anterior)}
+          prevLabel={period.prevLabel}
+          note={atual.devolucoes > 0 ? `${money(atual.devolucoes)} devolvidos` : undefined}
+          noteTone="neutral"
+          lowerIsBetter
+        />
+        {insights.clientes && (
+          <KpiCard
+            label="Clientes novos"
+            value={number(insights.clientes.novos)}
+            current={insights.clientes.novos}
+            prevLabel={period.prevLabel}
+            note={`${number(insights.clientes.total - insights.clientes.novos)} já compravam antes`}
+            noteTone="neutral"
+          />
+        )}
+        {margem && (
+          <KpiCard
+            className="col-span-2 lg:col-span-1"
+            label="Margem bruta"
+            value={percent(margemPct(margem.atual))}
+            current={margemPct(margem.atual)}
+            previous={margemPct(margem.anterior)}
+            prevLabel={period.prevLabel}
+            note={
+              margem.atual.cobertura < 0.95 && margem.atual.receita > 0
+                ? `sem custo cadastrado em ${percent(1 - margem.atual.cobertura)} das vendas`
+                : `${money(margem.atual.receita - margem.atual.custo)} de lucro bruto`
+            }
+            noteTone="neutral"
+          />
+        )}
       </div>
 
       {series.length > 1 && (
@@ -130,6 +201,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         />
       )}
 
+      {isManager && !vendedor && insights.vendedores && <VendorTable vendedores={insights.vendedores.atual} />}
+
       <div className="grid gap-3 md:grid-cols-2">
         <RankList
           title="Produtos mais vendidos"
@@ -141,9 +214,50 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         />
       </div>
 
+      <div className="grid gap-3 md:grid-cols-2">
+        {insights.categorias && (
+          <RankList
+            title="Vendas por categoria"
+            items={insights.categorias.map((c) => ({ key: c.codigo, nome: c.nome || "Sem categoria", total: c.total, detalhe: `${number(c.quantidade)} un.` }))}
+          />
+        )}
+        {insights.devolvidos && (
+          <RankList
+            title="Produtos mais devolvidos"
+            empty="Sem devoluções no período"
+            items={insights.devolvidos.map((p) => ({ key: p.codigo, nome: p.nome, total: p.total, detalhe: `${number(p.quantidade)} un.` }))}
+          />
+        )}
+        {showWeek && insights.semana && (
+          <RankList
+            title="Vendas por dia da semana"
+            items={insights.semana.map((d) => ({ key: d.dia, nome: WEEKDAYS[d.dia], total: d.total, detalhe: pedidosLabel(d.pedidos) }))}
+          />
+        )}
+        {insights.horas && (
+          <RankList
+            title="Vendas por horário"
+            items={insights.horas.map((h) => ({ key: h.hora, nome: `${String(h.hora).padStart(2, "0")}h às ${String(h.hora + 1).padStart(2, "0")}h`, total: h.total, detalhe: pedidosLabel(h.pedidos) }))}
+          />
+        )}
+      </div>
+
+      {insights.sumidos && <LostClients clientes={insights.sumidos} />}
+
       <OrdersTable pedidos={data.pedidos} showVendedor={isManager} />
     </Shell>
   );
+}
+
+const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+/** Soma os vendedores: peças por atendimento e desconto médio do escopo inteiro. */
+function totals(rows: VendorStats[]) {
+  const sum = (k: keyof VendorStats) => rows.reduce((acc, r) => acc + Number(r[k]), 0);
+  const pedidos = sum("pedidos");
+  const bruto = sum("bruto");
+  const descontoValor = sum("desconto");
+  return { pecasPorPedido: pedidos ? sum("pecas") / pedidos : 0, desconto: bruto ? descontoValor / bruto : 0, descontoValor };
 }
 
 function Shell({ session, children }: { session: NonNullable<Awaited<ReturnType<typeof getSession>>>; children: React.ReactNode }) {
