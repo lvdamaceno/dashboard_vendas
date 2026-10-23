@@ -15,8 +15,23 @@ const IMAGES = {
   painel: [780, 1688],
   "painel-vendedor": [780, 1688],
   cabecalho: [780, 128],
-  filtros: [764, 252],
-  "filtros-vendedor": [764, 148],
+  "fila-entrar": [716, 252],
+  "fila-lista": [716, 846],
+  "fila-vez": [716, 404],
+  "fila-atendendo": [716, 404],
+  "fila-foto": [716, 324],
+  "fila-gerente": [716, 862],
+  "metas-vendedor": [716, 808],
+  "metas-equipe": [716, 1264],
+  "sino-aberto": [780, 732],
+  "sino-gerente": [780, 1308],
+  "sugestao-botao": [424, 168],
+  sugestao: [780, 728],
+  "cartao-foto": [640, 1128],
+  "cartao-telefone": [640, 1448],
+  "telefones-equipe": [716, 978],
+  filtros: [716, 308],
+  "filtros-vendedor": [716, 204],
   "filtro-periodo": [764, 460],
   "periodo-texto": [756, 72],
   indicadores: [764, 552],
@@ -39,10 +54,17 @@ const IMAGES = {
   sumidos: [764, 974],
 } as const;
 
+// Animações: tamanho em pixels e duração de uma volta (ms), para a tela não passar antes de terminar
+const GIFS = {
+  fila: [520, 1125, 13600],
+  cartao: [360, 779, 4900],
+} as const;
+
 const SECTIONS = [
   ["o-que-e", "O que é o painel"],
   ["entrar", "Como entrar"],
   ["tela", "Conhecendo a tela"],
+  ["fila", "Fila de atendimento"],
   ["periodo", "Escolhendo o período"],
   ["numeros", "Entendendo os números"],
   ["grafico", "O gráfico de vendas por dia"],
@@ -51,7 +73,6 @@ const SECTIONS = [
   ["gerentes", "Para gerentes"],
   ["cartao", "Cartão de visita (WhatsApp)"],
   ["avisos", "Avisos e sugestões"],
-  ["fila", "Fila de atendimento"],
   ["metas", "Metas"],
   ["instalar", "Instalar no celular"],
   ["sair", "Sair e segurança"],
@@ -68,6 +89,23 @@ function Shot({ name, alt, caption, narrow }: { name: keyof typeof IMAGES; alt: 
         width={w / 2}
         height={h / 2}
         className="mx-auto h-auto max-h-[48dvh] w-auto max-w-full rounded-2xl border border-line shadow-sm"
+      />
+      {caption && <figcaption className="mt-2 text-center text-sm text-ink-2">{caption}</figcaption>}
+    </figure>
+  );
+}
+
+/** Animação (GIF) com legenda; marca a duração para a tela esperar a animação terminar. */
+function Anim({ name, alt, caption }: { name: keyof typeof GIFS; alt: string; caption?: string }) {
+  const [w, h, ms] = GIFS[name];
+  return (
+    <figure className="mx-auto my-3 max-w-[300px]" data-duracao={ms}>
+      <img
+        src={`/ajuda/${name}.gif`}
+        alt={alt}
+        width={w / 2}
+        height={h / 2}
+        className="mx-auto h-auto max-h-[52dvh] w-auto max-w-full rounded-2xl border border-line shadow-sm"
       />
       {caption && <figcaption className="mt-2 text-center text-sm text-ink-2">{caption}</figcaption>}
     </figure>
@@ -296,10 +334,15 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
       <p>De cima para baixo, ela tem:</p>
       <Steps>
         <li>
-          <strong>Faixa vermelha</strong> no topo, com o seu nome, se você é vendedor ou gerente, e o botão <strong>Sair</strong>.
+          <strong>Faixa vermelha</strong> no topo, com o <strong>sino de avisos</strong>, o seu nome, se você é vendedor ou gerente, e o
+          botão <strong>Sair</strong>.
         </li>
         <li>
-          <strong>Botões de período</strong> (Hoje, Semana, Mês, Período) e o botão do <strong>cartão de visita</strong>.
+          <strong>Botões de período</strong> (Hoje, Semana, Mês, Período) e, logo abaixo, os atalhos da <strong>Fila</strong> de
+          atendimento e do <strong>Cartão</strong> de visita.
+        </li>
+        <li>
+          Quando a loja tem meta, os quadros <strong>Meta do mês</strong> e <strong>Meta de hoje</strong>.
         </li>
         <li>
           <strong>Quatro quadros com os números principais</strong>: faturamento, pedidos, ticket médio e clientes.
@@ -313,7 +356,7 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
       </Steps>
     </>,
     <>
-      <Shot name="cabecalho" alt="Faixa vermelha com o logotipo, o nome LUCAS, a função Gerente e o botão Sair" caption="A faixa do topo mostra quem está usando o painel" />
+      <Shot name="cabecalho" alt="Faixa vermelha com o sino de avisos, o logotipo, o nome ANA PAULA, a função Vendedor e o botão Sair" caption="A faixa do topo: sino de avisos, quem está usando e Sair" />
       <Tip>Para ver tudo, arraste a tela para cima com o dedo, como em qualquer site.</Tip>
     </>,
   ],
@@ -323,7 +366,7 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
         Os botões arredondados no topo escolhem <strong>de quais dias</strong> você quer ver as vendas. O botão vermelho é o que está
         escolhido.
       </p>
-      <Shot name="filtros" alt="Botões Hoje, Semana, Mês e Período, com Mês selecionado em vermelho" />
+      <Shot name="filtros-vendedor" alt="Botões Hoje, Semana, Mês e Período, com Mês selecionado em vermelho, e embaixo os botões Fila e Cartão" />
     </>,
     <div className="space-y-2">
       <Term name="Hoje">Só as vendas de hoje.</Term>
@@ -505,7 +548,7 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
     <Shot key="ranking" name="ranking" alt="Ranking de vendedores: LUCAS, ANA e BRUNO, com valores e pedidos" />,
     <>
       <p>Para comparação, o vendedor não tem a caixa de escolher vendedor nem o ranking: ele vê só as próprias vendas.</p>
-      <Shot name="filtros-vendedor" alt="Botões de período sem a caixa de escolher vendedor" caption="Como o vendedor vê os botões do topo" />
+      <Shot name="filtros" alt="Botões de período, atalhos Fila e Cartão e a caixa Todos os vendedores" caption="Como o gerente vê os botões do topo" />
     </>,
     <>
       <p>
@@ -522,6 +565,13 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
         A margem depende do <strong>custo cadastrado</strong> de cada produto. Se faltar custo em parte das vendas, o quadro avisa
         embaixo quanto ficou de fora.
       </Tip>
+    </>,
+    <>
+      <p>
+        No fim do painel, o gerente tem <strong>Telefones da equipe</strong>: toque para abrir a lista e em <strong>Editar</strong> para
+        corrigir o celular de um vendedor. O número novo passa a valer no cartão de visita e no QR code dele.
+      </p>
+      <Shot name="telefones-equipe" alt="Lista Telefones da equipe com ANA PAULA, BRUNO, CARLA sem telefone, DIEGO, ELISA e MARCOS, cada um com o botão Editar" />
     </>,
   ],
   cartao: [
@@ -554,75 +604,170 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
         Para fechar, toque em <strong>Fechar</strong> ou fora do cartão.
       </li>
     </Steps>,
+    <Anim
+      key="gif"
+      name="cartao"
+      alt="Animação: o cartão vermelho com o QR code vira e mostra o lado amarelo com a foto, o nome e o telefone"
+      caption="Tocando no cartão, ele vira"
+    />,
+    <>
+      <p>
+        Se você colocou a sua foto na <strong>Fila de atendimento</strong>, ela aparece também no cartão, no lado com o seu nome e
+        telefone. O lado do QR code continua igual.
+      </p>
+      <Shot name="cartao-foto" alt="Lado amarelo do cartão com o logotipo, a foto da vendedora, o nome ANA SOUZA, Vendedor e o telefone" narrow />
+    </>,
+    <>
+      <p>
+        <strong>Telefone errado ou faltando?</strong> Toque em <strong>Atualizar telefone</strong>, embaixo do cartão, digite o celular
+        com DDD e toque em <strong>Salvar</strong>. O QR code passa a usar o número novo na hora.
+      </p>
+      <Shot name="cartao-telefone" alt="Cartão aberto com o campo Celular com DDD (WhatsApp) e o botão Salvar embaixo" narrow />
+    </>,
     <>
       <Tip>Aumente o brilho da tela antes de mostrar o QR code: a câmera do cliente lê mais rápido.</Tip>
       <Tip kind="atencao">
-        Se aparecer “Telefone não cadastrado” ou o número estiver errado, toque em <strong>Atualizar telefone</strong>, embaixo do
-        cartão, digite o celular com DDD e toque em <strong>Salvar</strong>. O QR code passa a usar o número novo. O gerente também
-        pode atualizar o telefone da equipe em <strong>Telefones da equipe</strong>, no painel.
+        Se aparecer “Telefone não cadastrado”, use o <strong>Atualizar telefone</strong>. O gerente também pode corrigir o telefone da
+        equipe em <strong>Telefones da equipe</strong>, no painel.
       </Tip>
     </>,
   ],
   avisos: [
     <>
       <p>
-        No canto de cima, à esquerda, fica o <strong>sino de avisos</strong>. Quando chega um aviso novo, aparece uma bolinha amarela nele.
+        No canto de cima, à esquerda, fica o <strong>sino de avisos</strong>. Quando chega um aviso novo, aparece uma{" "}
+        <strong>bolinha amarela</strong> nele.
       </p>
-      <Steps>
-        <li>Toque no sino para ler os avisos. Os novos aparecem destacados.</li>
-        <li>
-          Gerentes também podem <strong>enviar avisos para a própria equipe</strong>: toque em <strong>+ Novo aviso para a equipe</strong>,
-          escreva o título e a mensagem e toque em <strong>Enviar aviso</strong>.
-        </li>
-      </Steps>
+      <Shot name="cabecalho" alt="Faixa vermelha com o sino de avisos com a bolinha amarela de aviso novo" caption="A bolinha amarela no sino: tem aviso novo" />
+    </>,
+    <>
+      <p>Toque no sino para ler. Os avisos novos aparecem destacados, com a etiqueta <strong>Novo</strong>, e a bolinha some.</p>
+      <Shot name="sino-aberto" alt="Janela Avisos com dois avisos novos: Reunião amanhã às 8h, do MARCOS, e Bem-vindos à fila de atendimento" />
     </>,
     <>
       <p>
-        No canto de baixo, à direita, fica um botão redondo com um balãozinho: é o de <strong>Sugestões e erros</strong>. Use para
-        pedir uma melhoria ou contar algo que não funcionou: escolha <strong>Sugestão</strong> ou <strong>Erro</strong>, escreva e toque
-        em <strong>Enviar</strong>.
+        <strong>Gerentes</strong> também enviam avisos para a própria equipe: no sino, toque em <strong>+ Novo aviso para a equipe</strong>,
+        escreva o título e a mensagem e toque em <strong>Enviar aviso</strong>. Todos os vendedores da loja recebem.
       </p>
+      <Shot name="sino-gerente" alt="Janela Avisos do gerente com o formulário preenchido: título Meta de hoje e a mensagem para a equipe" />
+    </>,
+    <>
+      <p>
+        No canto de baixo, à direita, fica um botão redondo com um balãozinho: é o de <strong>Sugestões e erros</strong>. No computador,
+        ao passar o mouse, aparece o nome.
+      </p>
+      <Shot name="sugestao-botao" alt="Botão Sugestões e erros no canto inferior direito da tela" narrow />
+    </>,
+    <>
+      <p>
+        Use para pedir uma melhoria ou contar algo que não funcionou: escolha <strong>Sugestão</strong> ou <strong>Erro</strong>, escreva e
+        toque em <strong>Enviar</strong>.
+      </p>
+      <Shot name="sugestao" alt="Janela Sugestões e erros com Sugestão selecionada e uma mensagem escrita" />
       <Tip>No erro, conte o que você estava fazendo e o que apareceu na tela. Isso ajuda a resolver mais rápido.</Tip>
     </>,
   ],
   fila: [
     <>
       <p>
-        A <strong>fila de atendimento</strong> organiza quem atende o próximo cliente da loja. Toque no botão <strong>Fila</strong>, ao lado
-        dos períodos, para abrir.
+        A <strong>fila de atendimento</strong> organiza, em ordem, quem atende o próximo cliente que entra na loja. Ela substitui a
+        conversa de “quem é a vez?”: todo mundo vê a mesma fila, no celular, na hora.
+      </p>
+      <Shot name="filtros-vendedor" alt="Botões de período e, embaixo, os botões Fila e Cartão" caption="Toque em Fila, logo abaixo dos períodos" />
+    </>,
+    <>
+      <p>Veja o caminho completo, do começo ao fim:</p>
+      <Anim
+        name="fila"
+        alt="Animação da fila: a vendedora toca em Entrar na fila, vê a sua posição, chega a vez dela, toca em Atender cliente e vai para o fim, e depois toca em Terminei o atendimento"
+      />
+    </>,
+    <>
+      <p>
+        <strong>1. Entre na fila</strong> quando estiver livre para atender. Toque em <strong>Entrar na fila</strong>: o seu nome vai para o
+        fim da lista.
+      </p>
+      <Shot name="fila-entrar" alt="Quadro Você não está na fila, com o botão vermelho Entrar na fila" />
+    </>,
+    <>
+      <p>
+        <strong>2. Acompanhe a sua posição.</strong> O quadro de cima mostra o seu lugar (“Você é o 4º da fila”). Na lista, o primeiro que
+        está esperando fica em destaque como <strong className="text-accent">Próximo a atender</strong>; quem está com cliente aparece em{" "}
+        <strong className="text-good">Atendendo</strong>.
+      </p>
+      <Shot name="fila-lista" alt="Lista Na fila agora: BRUNO próximo a atender, CARLA e DIEGO esperando, ELISA atendendo e ANA PAULA (você) esperando" />
+    </>,
+    <>
+      <p>
+        <strong>3. Chegou a sua vez</strong> quando você é o primeiro esperando: o quadro fica rosado com <strong>É a sua vez!</strong>{" "}
+        Receba o próximo cliente que entrar.
+      </p>
+      <Shot name="fila-vez" alt="Quadro rosado É a sua vez!, com o botão Atender cliente" />
+    </>,
+    <>
+      <p>
+        <strong>4. Foi atender?</strong> Toque em <strong>Atender cliente</strong> assim que começar o atendimento. Você vai para o{" "}
+        <strong>fim da fila</strong> e fica marcado como atendendo; o próximo colega passa a ser o da vez.
+      </p>
+      <Shot name="fila-atendendo" alt="Quadro Você está atendendo, com o botão Terminei o atendimento" />
+    </>,
+    <>
+      <p>
+        <strong>5. Terminou?</strong> Toque em <strong>Terminei o atendimento</strong>. Você continua na fila, na posição em que está,
+        esperando a vez de novo. Não precisa entrar outra vez.
+      </p>
+      <Tip>
+        Vai almoçar, sair para o estoque ou ir embora? Toque em <strong>Sair da fila</strong>, para ninguém esperar por você.
+      </Tip>
+    </>,
+    <>
+      <p>
+        <strong>Exemplo:</strong> Bruno, Carla e Diego estão na fila, nessa ordem, e a Elisa está atendendo. A Ana chega e toca em{" "}
+        <strong>Entrar na fila</strong>: fica em 4º.
       </p>
       <Steps>
-        <li>
-          Toque em <strong>Entrar na fila</strong>. Quem entrou primeiro atende primeiro: o primeiro da vez aparece como{" "}
-          <strong>Próximo a atender</strong>.
-        </li>
-        <li>
-          Quando for atender um cliente, toque em <strong>Atender cliente</strong>. Você vai para o fim da fila.
-        </li>
-        <li>
-          Ao terminar, toque em <strong>Terminei o atendimento</strong>. Você continua na fila, esperando a sua vez de novo.
-        </li>
+        <li>Entra um cliente: Bruno é o próximo. Ele toca em Atender cliente e vai para o fim.</li>
+        <li>Agora a Carla é a próxima; depois o Diego.</li>
+        <li>Quando os três estão atendendo, a vez é da Ana: aparece “É a sua vez!”.</li>
+        <li>A Ana atende, toca em Atender cliente e vai para o fim. Ao terminar, toca em Terminei e espera de novo.</li>
       </Steps>
     </>,
     <>
-      <Tip>A fila se atualiza sozinha em todos os celulares da loja. Todo dia às 7h ela começa vazia.</Tip>
-      <Tip>
-        Coloque a sua foto em <strong>Sua foto na fila</strong>, embaixo da lista: ela aparece ao lado do seu nome para a equipe.
-      </Tip>
-      <p>O gerente da loja também vê a fila e pode mudar a ordem quando precisar.</p>
+      <p>
+        <strong>Coloque a sua foto.</strong> Embaixo da lista, em <strong>Sua foto na fila</strong>, toque em <strong>Enviar foto</strong> e
+        escolha uma foto ou tire uma na hora. Ela aparece ao lado do seu nome para a equipe e no seu cartão de visita.
+      </p>
+      <Shot name="fila-foto" alt="Quadro Sua foto na fila com a foto da vendedora e os botões Trocar foto e Remover" />
+      <Tip>Sem foto, aparece um bonequinho com o sorriso da Casa Contente.</Tip>
+    </>,
+    <>
+      <Tip>A fila se atualiza sozinha em todos os celulares da loja, a cada poucos segundos. Não precisa recarregar.</Tip>
+      <Tip>Todo dia às 7h da manhã a fila começa vazia: quem chegar entra de novo.</Tip>
+      <Tip kind="atencao">Cada loja tem a sua fila. Você só vê e só entra na fila da sua loja.</Tip>
+    </>,
+    <>
+      <p>
+        <strong>Gerentes</strong> veem a fila da loja e podem arrumar a ordem: <strong>↑</strong> sobe, <strong>↓</strong> desce e{" "}
+        <strong>×</strong> tira alguém da fila (por exemplo, quem saiu e esqueceu de sair da fila).
+      </p>
+      <Shot name="fila-gerente" alt="Fila vista pelo gerente, com os botões subir, descer e tirar ao lado de cada vendedor" />
     </>,
   ],
   metas: [
     <>
       <p>
-        Quando a loja tem meta no mês, o painel mostra dois quadros logo abaixo dos números principais. Eles valem sempre para o mês de
-        hoje, qualquer que seja o período escolhido.
+        Quando a loja tem meta no mês, o painel mostra dois quadros logo abaixo dos números principais. Eles valem sempre para o{" "}
+        <strong>mês de hoje</strong>, qualquer que seja o período escolhido.
       </p>
+      <Shot name="metas-vendedor" alt="Quadros Meta de outubro, com 68,8% de R$ 60.000,00, e Meta de hoje, de R$ 5.696,15, devendo R$ 3.388,46" />
+    </>,
+    <>
       <Term name="Meta do mês">
-        Quanto da sua meta você já vendeu, quanto falta e onde o mês termina se continuar no mesmo ritmo. O gerente vê a meta da loja.
+        Quanto da sua meta você já vendeu, quanto falta, onde o mês termina se continuar no mesmo ritmo e quanto precisa vender por dia
+        para bater.
       </Term>
       <Term name="Meta de hoje">
-        A meta do mês dividida pelos dias úteis (sem domingos e feriados), com o saldo dos dias anteriores.
+        A meta do mês dividida pelos dias úteis (sem domingos e feriados), mais ou menos o saldo dos dias anteriores.
       </Term>
     </>,
     <>
@@ -631,13 +776,32 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
       </p>
       <Steps>
         <li>
-          Vendeu <strong>mais</strong> que a meta do dia? A diferença vira <span className="text-good">saldo</span> e a meta de amanhã fica menor.
+          Vendeu <strong>mais</strong> que a meta do dia? A diferença vira <span className="text-good">saldo</span> e a meta de amanhã fica
+          menor.
         </li>
         <li>
           Vendeu <strong>menos</strong>? A diferença fica <span className="text-bad">devendo</span> e a meta de amanhã fica maior.
         </li>
       </Steps>
-      <Tip>O gerente vê também as <strong>Metas da equipe</strong>: quanto cada vendedor já fez do mês, a meta de hoje e o saldo.</Tip>
+    </>,
+    <>
+      <p>
+        <strong>Exemplo:</strong> meta do mês de R$ 60.000 com 26 dias úteis dá <strong>R$ 2.307,69 por dia</strong>.
+      </p>
+      <Steps>
+        <li>Na segunda, a Ana vendeu R$ 3.000: sobraram R$ 692,31 de saldo.</li>
+        <li>Na terça, a meta dela é R$ 2.307,69 − R$ 692,31 = R$ 1.615,38.</li>
+        <li>Se na terça vender só R$ 1.000, fica devendo R$ 615,38, e a meta de quarta sobe para R$ 2.923,07.</li>
+      </Steps>
+      <Tip>Se o saldo já cobre o dia inteiro, o quadro mostra “Coberta pelo saldo”: tudo o que vender aumenta a folga.</Tip>
+    </>,
+    <>
+      <p>
+        O <strong>gerente</strong> vê a meta da loja e as <strong>Metas da equipe</strong>: quanto cada vendedor já fez do mês, a meta de
+        hoje, o saldo e se está <span className="text-good">no ritmo</span> ou <span className="text-bad">abaixo do ritmo</span> para
+        fechar o mês.
+      </p>
+      <Shot name="metas-equipe" alt="Lista Metas da equipe com BRUNO e DIEGO no ritmo e ANA PAULA, CARLA e ELISA abaixo do ritmo" />
     </>,
   ],
   instalar: [

@@ -9,8 +9,9 @@ function getPool() {
   if (!pool) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL não configurada");
-    // A URL interna do Render (host sem domínio) dispensa TLS; a externa exige
-    const external = new URL(url).hostname.includes(".");
+    // A URL interna do Render (host sem domínio) e o Postgres local dispensam TLS; a externa exige
+    const host = new URL(url).hostname;
+    const external = host.includes(".") && !/^(localhost|127\.)/.test(host);
     pool = new Pool({ connectionString: url, max: 3, idleTimeoutMillis: 30_000, ssl: external ? { rejectUnauthorized: false } : undefined });
     pool.on("error", (err) => console.error("[db] conexão ociosa falhou:", err.message));
   }

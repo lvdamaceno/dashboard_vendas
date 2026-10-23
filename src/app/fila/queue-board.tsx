@@ -296,12 +296,13 @@ function PhotoPicker({ me, onChanged }: { me: { codvend: number; nome: string; f
   return (
     <section className="flex flex-wrap items-center gap-4 rounded-3xl border border-line bg-surface p-5">
       <Avatar codvend={me.codvend} nome={me.nome} versao={versao} size="size-16" />
-      <div className="min-w-0 flex-1">
+      {/* No celular os botões descem para a linha de baixo, sem espremer o texto */}
+      <div className="min-w-0 flex-1 basis-40">
         <h2 className="text-base">Sua foto na fila</h2>
         <p className="text-sm text-ink-2">Aparece ao lado do seu nome para a equipe.</p>
         {error && <p className="mt-1 text-sm text-bad">{error}</p>}
       </div>
-      <div className="flex gap-2">
+      <div className="flex w-full gap-2 sm:w-auto">
         <input ref={input} type="file" accept="image/*" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} aria-label="Escolher foto" />
         <button
           type="button"

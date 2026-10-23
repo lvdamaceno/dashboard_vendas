@@ -60,6 +60,14 @@ export function GoalSummary({ progress }: { progress: GoalProgress }) {
         </div>
         {p.metaHoje === null ? (
           <p className="mt-2 text-sm text-ink-2">Hoje não é dia útil: não há meta para hoje. Vendas de hoje contam como saldo.</p>
+        ) : p.metaHoje === 0 ? (
+          <>
+            <p className="mt-2 font-title text-2xl font-semibold text-good">Coberta pelo saldo 🎉</p>
+            <p className="tabular mt-2 text-sm text-ink-2">
+              O que você vendeu a mais nos dias anteriores já cobre a meta de hoje. Tudo o que vender hoje aumenta o saldo.
+            </p>
+            <p className="tabular mt-1 text-xs text-ink-3">{money(p.hoje)} vendidos hoje</p>
+          </>
         ) : (
           <>
             <p className="tabular mt-2 font-title text-2xl font-semibold">{money(p.metaHoje)}</p>
@@ -105,7 +113,6 @@ export function GoalTable({ titulo, linhas, hojeUtil }: { titulo: string; linhas
                 <span className="flex min-w-0 items-baseline gap-2">
                   <span className="truncate font-medium">{l.nome}</span>
                   {l.loja && <span className="shrink-0 text-xs text-ink-3">{l.loja}</span>}
-                  <Ritmo l={l} />
                 </span>
                 <span className="tabular shrink-0">
                   {percent(atingido)} <span className="text-xs text-ink-3">de {money(l.meta)}</span>
@@ -114,11 +121,12 @@ export function GoalTable({ titulo, linhas, hojeUtil }: { titulo: string; linhas
               <div className="mt-1 flex items-center">
                 <Bar value={atingido} tone={atingido >= 1 ? "good" : "accent"} />
               </div>
-              <p className="tabular mt-1 flex flex-wrap gap-x-3 text-xs text-ink-3">
+              <p className="tabular mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
+                <Ritmo l={l} />
                 <span>{money(l.realizado)} no mês</span>
                 {hojeUtil && l.metaHoje !== null && (
                   <span className={l.hoje >= l.metaHoje ? "text-good" : ""}>
-                    hoje {money(l.hoje)} de {money(l.metaHoje)}
+                    {l.metaHoje === 0 ? "hoje coberto pelo saldo" : `hoje ${money(l.hoje)} de ${money(l.metaHoje)}`}
                   </span>
                 )}
                 <Saldo valor={l.saldo} />

@@ -76,9 +76,10 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
 
   return (
     <div className="space-y-2 md:flex md:flex-wrap md:items-center md:gap-2 md:space-y-0" aria-busy={pending}>
-      {/* No celular, períodos e cartão dividem a primeira linha; no desktop o cartão vai para a direita */}
-      <div className="flex gap-2 md:contents">
-        <div className="grid flex-1 grid-cols-4 rounded-full border border-line bg-surface p-1 md:inline-grid md:w-auto md:flex-none" role="tablist" aria-label="Período">
+      {/* No celular, os períodos ocupam a linha inteira e os atalhos (fila, cartão…) vêm logo abaixo, com nome;
+          no desktop tudo fica numa linha, com os atalhos à direita */}
+      <div className="flex flex-col gap-2 md:contents">
+        <div className="grid grid-cols-4 rounded-full border border-line bg-surface p-1 md:inline-grid md:w-auto md:flex-none" role="tablist" aria-label="Período">
           {PRESETS.map((p) => {
             const active = custom ? p.value === "periodo" : p.value === preset;
             return (
@@ -100,11 +101,11 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
             );
           })}
         </div>
-        <div className="flex gap-2 md:order-last md:ml-auto">
+        <div className="flex gap-2 *:flex-1 md:order-last md:ml-auto md:*:flex-none">
           <Link
             href={loja ? `/fila?loja=${loja}` : "/fila"}
             aria-label="Fila de atendimento"
-            className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+            className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10"
           >
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
               <circle cx="6" cy="8" r="2.2" />
@@ -112,33 +113,33 @@ export function Filters({ preset, from, to, today, vendedor, team, stores = [], 
               <circle cx="18" cy="8" r="2.2" />
               <path d="M3 18c0-2 1.3-3.5 3-3.5S9 16 9 18M9 18c0-2 1.3-3.5 3-3.5s3 1.5 3 3.5M15 18c0-2 1.3-3.5 3-3.5s3 1.5 3 3.5" strokeLinecap="round" />
             </svg>
-            <span className="hidden sm:inline">Fila</span>
+            <span>Fila</span>
           </Link>
           {showGoals && (
             <Link
               href={loja ? `/metas?loja=${loja}` : "/metas"}
-              className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10"
             >
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <circle cx="12" cy="12" r="8.5" />
                 <circle cx="12" cy="12" r="4.5" />
                 <circle cx="12" cy="12" r="1" fill="currentColor" />
               </svg>
-              <span className="hidden sm:inline">Metas</span>
+              <span>Metas</span>
             </Link>
           )}
           {showGoals && (
             <Link
               href="/feriados"
               aria-label="Feriados"
-              className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10"
             >
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                 <rect x="3.5" y="5" width="17" height="15" rx="2" />
                 <path d="M3.5 9.5h17M8 3v4M16 3v4" strokeLinecap="round" />
                 <path d="m9.5 15 2 2 3.5-4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span className="hidden sm:inline">Feriados</span>
+              <span>Feriados</span>
             </Link>
           )}
           {showCard && <BusinessCard />}

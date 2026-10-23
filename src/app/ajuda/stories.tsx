@@ -6,11 +6,13 @@ import { Logo } from "@/components/logo";
 
 export type Story = { section: number | null; content: React.ReactNode };
 
-// Tempo para ler uma tela: devagar (150 palavras por minuto) e um pouco mais quando tem imagem
+// Tempo para ler uma tela: devagar (150 palavras por minuto) e um pouco mais quando tem imagem.
+// Animações (GIF) marcam a própria duração em data-duracao: a tela fica pelo menos até a animação terminar.
 function readingTime(slide: HTMLElement) {
   const words = (slide.textContent ?? "").split(/\s+/).filter(Boolean).length;
   const images = slide.querySelectorAll("figure").length;
-  return Math.max(5000, Math.min(25000, 2000 + words * 400 + images * 2500));
+  const anim = [...slide.querySelectorAll<HTMLElement>("[data-duracao]")].reduce((max, el) => Math.max(max, Number(el.dataset.duracao) || 0), 0);
+  return Math.max(5000, anim + 2500, Math.min(25000, 2000 + words * 400 + images * 2500));
 }
 
 /**

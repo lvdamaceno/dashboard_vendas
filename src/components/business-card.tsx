@@ -33,13 +33,13 @@ export function BusinessCard() {
         type="button"
         onClick={open}
         aria-label="Cartão de visita"
-        className="flex shrink-0 items-center gap-2 self-stretch rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10 md:self-auto"
+        className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-line bg-surface px-4 font-title text-sm font-medium text-ink-2 hover:bg-bg-alt active:bg-bg-alt md:h-10"
       >
         <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <rect x="3" y="5" width="18" height="14" rx="2" />
           <path d="M7 15h4M7 11h6M16 10h1M16 14h1" strokeLinecap="round" />
         </svg>
-        <span className="hidden sm:inline">Cartão</span>
+        <span>Cartão</span>
       </button>
 
       <dialog

@@ -4,7 +4,7 @@ import { photoVersion } from "@/lib/fila";
 import { loadQueue, queueStore, type QueueView } from "@/lib/fila-access";
 import { listNotices } from "@/lib/painel";
 import { getStores } from "@/lib/sales";
-import { getSession, isManagerial } from "@/lib/session";
+import { getSession } from "@/lib/session";
 import { QueueBoard } from "./queue-board";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -19,7 +19,8 @@ export default async function QueuePage({ searchParams }: { searchParams: Search
   const choosesStore = session.role === "master" || session.role === "admin";
 
   const [stores, notices, codemp, foto] = await Promise.all([
-    isManagerial(session) ? getStores().catch(() => []) : [],
+    // Também para o vendedor: o nome da loja aparece no topo da fila
+    getStores().catch(() => []),
     listNotices(session).catch(() => null),
     queueStore(session, lojaParam).catch((err) => {
       console.error("[fila] loja:", err instanceof Error ? err.message : err);
