@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Logo, Smile } from "@/components/logo";
+import { Stories, type Story } from "./stories";
 
 export const metadata: Metadata = {
   title: "Como usar · Painel de Vendas",
@@ -50,34 +50,34 @@ const SECTIONS = [
 function Shot({ name, alt, caption, narrow }: { name: keyof typeof IMAGES; alt: string; caption?: string; narrow?: boolean }) {
   const [w, h] = IMAGES[name];
   return (
-    <figure className={`mx-auto my-5 ${narrow ? "max-w-[300px]" : "max-w-[390px]"}`}>
+    <figure className={`mx-auto my-3 ${narrow ? "max-w-[300px]" : "max-w-[390px]"}`}>
       <img
         src={`/ajuda/${name}.png`}
         alt={alt}
         width={w / 2}
         height={h / 2}
-        loading="lazy"
-        className="h-auto w-full rounded-2xl border border-line shadow-sm"
+        className="mx-auto h-auto max-h-[48dvh] w-auto max-w-full rounded-2xl border border-line shadow-sm"
       />
       {caption && <figcaption className="mt-2 text-center text-sm text-ink-2">{caption}</figcaption>}
     </figure>
   );
 }
 
-function Section({ id, n, title, children }: { id: string; n: number; title: string; children: React.ReactNode }) {
+/** Uma tela do guia: o número e o nome da seção, e um pedaço curto do conteúdo. */
+function Slide({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-4 rounded-3xl border border-line bg-surface p-5 md:p-8">
-      <h2 className="flex items-center gap-3 text-xl md:text-2xl">
+    <>
+      <h2 className="flex items-center gap-3 text-xl">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent font-title text-base text-white">{n}</span>
         {title}
       </h2>
-      <div className="mt-4 space-y-4 text-base leading-relaxed">{children}</div>
-    </section>
+      <div className="mt-4 space-y-4 text-[17px] leading-relaxed">{children}</div>
+    </>
   );
 }
 
-function Steps({ children }: { children: React.ReactNode }) {
-  return <ol className="list-decimal space-y-2 pl-6 marker:font-title marker:font-semibold marker:text-accent">{children}</ol>;
+function Steps({ children, start }: { children: React.ReactNode; start?: number }) {
+  return <ol start={start} className="list-decimal space-y-2 pl-6 marker:font-title marker:font-semibold marker:text-accent">{children}</ol>;
 }
 
 function Tip({ children, kind = "dica" }: { children: React.ReactNode; kind?: "dica" | "atencao" }) {
@@ -91,7 +91,7 @@ function Tip({ children, kind = "dica" }: { children: React.ReactNode; kind?: "d
 
 function Term({ name, children }: { name: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-line p-4">
+    <div className="rounded-2xl border border-line bg-surface p-4">
       <p className="font-title text-lg font-semibold">{name}</p>
       <div className="mt-1 text-[15px] text-ink-2">{children}</div>
     </div>
@@ -198,7 +198,7 @@ function HomeScreen() {
           </div>
         ))}
         <div className="relative flex flex-col items-center gap-1">
-              <img src="/icons/icon-192.png" alt="" className="size-10 rounded-xl" />
+          <img src="/icons/icon-192.png" alt="" className="size-10 rounded-xl" />
           <span className="text-[9px] text-white">Vendas</span>
           <Highlight className="-inset-1 rounded-2xl" />
         </div>
@@ -207,30 +207,393 @@ function HomeScreen() {
   );
 }
 
+// Cada seção vira algumas telas curtas, na mesma ordem do guia
+const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
+  "o-que-e": [
+    <>
+      <p>
+        O Painel de Vendas é uma página na internet que mostra <strong>quanto você vendeu</strong>: hoje, nesta semana, neste mês ou em
+        qualquer intervalo de datas que você escolher.
+      </p>
+      <p>
+        Os números vêm direto do sistema da loja (o <strong>Sankhya</strong>), o mesmo onde os pedidos são lançados. Você não precisa
+        digitar nada: é só entrar e olhar.
+      </p>
+    </>,
+    <>
+      <ul className="list-disc space-y-1 pl-6">
+        <li>
+          <strong>Vendedor</strong> vê somente as próprias vendas.
+        </li>
+        <li>
+          <strong>Gerente</strong> vê as vendas da loja dele e de cada vendedor da loja.
+        </li>
+      </ul>
+      <Tip>Funciona em qualquer celular, tablet ou computador com internet. Não precisa baixar nada da loja de aplicativos.</Tip>
+    </>,
+  ],
+  entrar: [
+    <>
+      <p>
+        Para entrar você só precisa do seu <strong>CPF</strong>. Não existe senha.
+      </p>
+      <Steps>
+        <li>Abra o endereço do painel no navegador do celular (o Chrome, no Android, ou o Safari, no iPhone).</li>
+        <li>
+          Toque no campo <strong>CPF</strong> e digite os 11 números do seu CPF. Pode digitar com ou sem pontos e traço.
+        </li>
+        <li>
+          Toque no botão vermelho <strong>Entrar</strong>.
+        </li>
+      </Steps>
+    </>,
+    <Shot key="login" name="login" alt="Tela de entrada com o logotipo da Casa Contente e o campo CPF" caption="A tela de entrada" narrow />,
+    <>
+      <Shot name="login-cpf" alt="Campo CPF preenchido com 123.456.789-09" caption="CPF digitado, pronto para entrar" />
+      <Shot name="login-erro" alt="Mensagem em vermelho: Informe um CPF válido" caption="Se aparecer uma mensagem em vermelho, confira o número" />
+    </>,
+    <>
+      <p className="font-title text-lg font-semibold">E se não conseguir entrar?</p>
+      <div className="space-y-2">
+        <Term name="“Informe um CPF válido.”">Algum número foi digitado errado. Apague e digite de novo com calma.</Term>
+        <Term name="“CPF não encontrado como usuário no Sankhya.”">
+          Seu CPF ainda não está ligado a um usuário do sistema. Fale com o seu gerente ou com o setor de TI.
+        </Term>
+        <Term name="“Seu usuário não possui um vendedor vinculado…” ou “…está inativo.”">
+          Seu cadastro de vendedor precisa de ajuste. Fale com o seu gerente ou com o setor de TI.
+        </Term>
+      </div>
+    </>,
+    <>
+      <p className="font-title text-lg font-semibold">E se não conseguir entrar?</p>
+      <div className="space-y-2">
+        <Term name="“Muitas tentativas. Aguarde 15 minutos…”">
+          Por segurança, depois de 5 tentativas erradas o painel espera 15 minutos. Depois disso, tente de novo.
+        </Term>
+        <Term name="“Não foi possível conectar ao Sankhya.”">
+          O sistema da loja não respondeu. Confira se o celular está com internet e tente de novo em alguns minutos.
+        </Term>
+      </div>
+    </>,
+  ],
+  tela: [
+    <>
+      <p>Depois de entrar, você vê a tela principal.</p>
+      <Shot name="painel" alt="Tela principal do painel com cabeçalho vermelho, filtros e indicadores" caption="A tela principal do painel" narrow />
+    </>,
+    <>
+      <p>De cima para baixo, ela tem:</p>
+      <Steps>
+        <li>
+          <strong>Faixa vermelha</strong> no topo, com o seu nome, se você é vendedor ou gerente, e o botão <strong>Sair</strong>.
+        </li>
+        <li>
+          <strong>Botões de período</strong> (Hoje, Semana, Mês, Período) e o botão do <strong>cartão de visita</strong>.
+        </li>
+        <li>
+          <strong>Quatro quadros com os números principais</strong>: faturamento, pedidos, ticket médio e clientes.
+        </li>
+        <li>
+          <strong>Gráfico</strong> com quanto foi vendido em cada dia.
+        </li>
+        <li>
+          <strong>Listas</strong>: produtos mais vendidos, principais clientes e últimas vendas.
+        </li>
+      </Steps>
+    </>,
+    <>
+      <Shot name="cabecalho" alt="Faixa vermelha com o logotipo, o nome LUCAS, a função Gerente e o botão Sair" caption="A faixa do topo mostra quem está usando o painel" />
+      <Tip>Para ver tudo, arraste a tela para cima com o dedo, como em qualquer site.</Tip>
+    </>,
+  ],
+  periodo: [
+    <>
+      <p>
+        Os botões arredondados no topo escolhem <strong>de quais dias</strong> você quer ver as vendas. O botão vermelho é o que está
+        escolhido.
+      </p>
+      <Shot name="filtros" alt="Botões Hoje, Semana, Mês e Período, com Mês selecionado em vermelho" />
+    </>,
+    <div className="space-y-2">
+      <Term name="Hoje">Só as vendas de hoje.</Term>
+      <Term name="Semana">A semana atual, de segunda-feira a sábado.</Term>
+      <Term name="Mês">O mês atual inteiro, do dia 1º até o último dia. É o que aparece quando você entra.</Term>
+      <Term name="Período">Você escolhe a data de início e a data de fim. Bom para comparar uma quinzena, por exemplo.</Term>
+    </div>,
+    <>
+      <p>
+        Para usar o <strong>Período</strong>: toque nele, toque em cada data para escolher no calendário e depois toque em{" "}
+        <strong>Aplicar período</strong>.
+      </p>
+      <Shot name="filtro-periodo" alt="Campos de data inicial 01/10/2026 e final 22/10/2026 e o botão Aplicar período" caption="Escolhendo um período personalizado" />
+    </>,
+    <>
+      <p>Logo abaixo dos botões aparece, em letras pequenas, o período que está sendo mostrado:</p>
+      <Shot name="periodo-texto" alt="Texto: 01/10/2026 – 31/10/2026" />
+    </>,
+  ],
+  numeros: [
+    <>
+      <p>Os quatro quadros resumem as vendas do período escolhido.</p>
+      <Shot name="indicadores" alt="Quatro quadros: Faturamento líquido, Pedidos, Ticket médio e Clientes" />
+    </>,
+    <div className="space-y-2">
+      <Term name="Faturamento líquido">
+        Quanto foi vendido em reais, <strong>já descontando as devoluções</strong>. Quando houve devolução, aparece embaixo, em vermelho,
+        quanto foi devolvido.
+      </Term>
+      <Term name="Pedidos">Quantas vendas foram feitas. Devoluções não contam aqui.</Term>
+    </div>,
+    <div className="space-y-2">
+      <Term name="Ticket médio">
+        Quanto, em média, cada pedido rendeu. É o faturamento dividido pelo número de pedidos. Se subiu, os clientes estão comprando
+        mais em cada compra.
+      </Term>
+      <Term name="Clientes">Quantos clientes diferentes compraram. Um cliente que comprou duas vezes conta uma vez só.</Term>
+    </div>,
+    <>
+      <p className="font-title text-lg font-semibold">As setinhas verdes e vermelhas</p>
+      <Shot name="indicador-faturamento" alt="Quadro de faturamento com seta verde para cima: 13,9%" narrow />
+      <ul className="list-disc space-y-1 pl-6">
+        <li>
+          <span className="font-semibold text-good">▲ verde</span>: você está <strong>melhor</strong> que no período anterior.
+        </li>
+        <li>
+          <span className="font-semibold text-bad">▼ vermelha</span>: você está <strong>abaixo</strong> do período anterior.
+        </li>
+      </ul>
+    </>,
+    <Tip key="tip">
+      A comparação é justa: se hoje é dia 22, o mês atual é comparado com o mês passado <strong>até o dia 22</strong>, e não com o mês
+      passado inteiro. Na semana, vale o mesmo: até o mesmo dia da semana.
+    </Tip>,
+  ],
+  grafico: [
+    <>
+      <p>
+        Cada <strong>barra vermelha é um dia</strong>. Quanto mais alta a barra, mais foi vendido naquele dia. Os dias que ainda não
+        chegaram aparecem vazios.
+      </p>
+      <Shot name="grafico" alt="Gráfico de barras vermelhas do faturamento por dia em outubro" />
+    </>,
+    <>
+      <p>
+        <strong>Toque em uma barra</strong> para ver o dia, o valor exato e quantos pedidos foram feitos.
+      </p>
+      <Shot name="grafico-detalhe" alt="Gráfico com um balão mostrando 11/10/2026, R$ 10.190,00, 3 pedidos" caption="Tocando em uma barra aparecem os detalhes do dia" />
+    </>,
+    <Tip key="tip" kind="atencao">
+      Uma barra <strong>para baixo da linha do zero</strong> é um dia em que as devoluções foram maiores que as vendas.
+    </Tip>,
+    <>
+      <p>
+        Prefere números a gráfico? Toque em <strong>Ver em tabela</strong>, embaixo do gráfico, e aparece a lista dia a dia.
+      </p>
+      <Shot name="grafico-tabela" alt="Tabela com data, número de pedidos e valor de cada dia" narrow />
+    </>,
+  ],
+  listas: [
+    <>
+      <p>
+        Cada lista mostra os maiores primeiro. A <strong>barrinha vermelha</strong> embaixo de cada nome ajuda a comparar: quanto mais
+        cheia, mais vendeu.
+      </p>
+      <Shot name="produtos" alt="Lista de produtos mais vendidos com valor e quantidade" caption="Produtos mais vendidos: valor e quantidade (un. = unidades)" />
+    </>,
+    <Shot key="clientes" name="clientes" alt="Lista dos principais clientes com valor e número de pedidos" caption="Principais clientes: quem mais comprou no período" />,
+    <>
+      <p>
+        No fim da página ficam as <strong>últimas vendas e devoluções</strong>, da mais recente para a mais antiga, com a data, o número da
+        nota e o valor.
+      </p>
+      <Shot name="ultimas" alt="Lista das últimas vendas, com uma devolução marcada em vermelho" caption="Devoluções aparecem com a etiqueta “Devolução” e o valor em vermelho, com sinal de menos" />
+    </>,
+  ],
+  gerentes: [
+    <>
+      <p>Quem é gerente tem duas coisas a mais:</p>
+      <Steps>
+        <li>
+          Uma caixa <strong>Todos os vendedores</strong>, logo abaixo dos períodos. Toque nela e escolha um nome para ver só as vendas
+          daquele vendedor. Para voltar a ver todos, escolha <strong>Todos os vendedores</strong>.
+        </li>
+        <li>
+          O <strong>Ranking de vendedores</strong>, com quem vendeu mais no período. Tocar no nome de um vendedor abre as vendas dele.
+        </li>
+      </Steps>
+    </>,
+    <Shot key="ranking" name="ranking" alt="Ranking de vendedores: LUCAS, ANA e BRUNO, com valores e pedidos" />,
+    <>
+      <p>Para comparação, o vendedor não tem a caixa de escolher vendedor nem o ranking: ele vê só as próprias vendas.</p>
+      <Shot name="filtros-vendedor" alt="Botões de período sem a caixa de escolher vendedor" caption="Como o vendedor vê os botões do topo" />
+    </>,
+  ],
+  cartao: [
+    <p key="intro">
+      O painel tem um <strong>cartão de visita digital</strong> para mostrar ao cliente. Ele tem o seu nome e o seu WhatsApp, e o cliente
+      pode falar com você só apontando a câmera do celular.
+    </p>,
+    <Steps key="passos">
+      <li>
+        Toque no botão do cartão, ao lado dos períodos (o desenho de um cartãozinho; no computador aparece escrito <strong>Cartão</strong>).
+      </li>
+      <li>
+        Aparece o cartão vermelho com o <strong>QR code</strong> (o quadrado de pontinhos).
+      </li>
+      <li>
+        Se quiser mostrar o seu nome e telefone escritos, <strong>toque no cartão</strong>: ele vira para o lado amarelo. Tocando de novo,
+        volta para o QR code.
+      </li>
+    </Steps>,
+    <div key="fotos" className="grid grid-cols-2 gap-3">
+      <Shot name="cartao-verso" alt="Lado vermelho do cartão, com o QR code do WhatsApp" caption="Primeiro aparece o QR code" />
+      <Shot name="cartao-frente" alt="Lado amarelo do cartão, com logotipo, nome, cargo e telefone" caption="Tocando, aparece nome e telefone" />
+    </div>,
+    <Steps key="mostrar" start={4}>
+      <li>
+        Mostre a tela para o cliente. Ele abre a câmera do celular dele, aponta para o QR code e toca no aviso que aparece: o WhatsApp abre
+        já na conversa com você.
+      </li>
+      <li>
+        Para fechar, toque em <strong>Fechar</strong> ou fora do cartão.
+      </li>
+    </Steps>,
+    <>
+      <Tip>Aumente o brilho da tela antes de mostrar o QR code: a câmera do cliente lê mais rápido.</Tip>
+      <Tip kind="atencao">
+        Se aparecer “Telefone não cadastrado”, o seu celular não está no cadastro de funcionário do sistema. Peça para o seu gerente
+        atualizar.
+      </Tip>
+    </>,
+  ],
+  instalar: [
+    <p key="intro">
+      Você pode colocar o painel na tela inicial do celular, <strong>como se fosse um aplicativo</strong>. Assim não precisa digitar o
+      endereço toda vez: é só tocar no ícone.
+    </p>,
+    <>
+      <h3 className="font-title text-xl font-semibold">📱 iPhone (Safari)</h3>
+      <Steps>
+        <li>
+          Abra o painel no <strong>Safari</strong> (o navegador com a bússola azul).
+        </li>
+        <li>
+          Toque no botão <strong>Compartilhar</strong>: o quadrado com uma seta para cima, na barra de baixo.
+        </li>
+        <li>
+          Arraste a lista para cima e toque em <strong>Adicionar à Tela de Início</strong>.
+        </li>
+        <li>
+          Toque em <strong>Adicionar</strong>, no canto de cima.
+        </li>
+      </Steps>
+    </>,
+    <Phone key="ios-2" label="Passo 2: toque em Compartilhar">
+      <MiniApp />
+      <SafariBar highlight />
+    </Phone>,
+    <Phone key="ios-3" label="Passo 3: Adicionar à Tela de Início">
+      <MiniApp />
+      <MenuSheet items={["Copiar", "Adicionar aos Favoritos", "Adicionar à Tela de Início", "Imprimir"]} active="Adicionar à Tela de Início" />
+    </Phone>,
+    <Phone key="ios-ok" label="Pronto: o ícone na tela inicial">
+      <HomeScreen />
+    </Phone>,
+    <>
+      <h3 className="font-title text-xl font-semibold">🤖 Android (Chrome)</h3>
+      <Steps>
+        <li>
+          Abra o painel no <strong>Chrome</strong> (o navegador redondo colorido).
+        </li>
+        <li>
+          Toque nos <strong>três pontinhos</strong> (⋮), no canto de cima à direita.
+        </li>
+        <li>
+          Toque em <strong>Instalar app</strong> (em alguns celulares aparece <strong>Adicionar à tela inicial</strong>).
+        </li>
+        <li>
+          Confirme tocando em <strong>Instalar</strong>.
+        </li>
+      </Steps>
+    </>,
+    <Phone key="and-2" label="Passo 2: toque nos três pontinhos">
+      <ChromeBar highlight />
+      <MiniApp />
+    </Phone>,
+    <Phone key="and-3" label="Passo 3: Instalar app">
+      <ChromeBar />
+      <MiniApp />
+      <MenuSheet items={["Nova guia", "Histórico", "Compartilhar…", "Instalar app", "Configurações"]} active="Instalar app" />
+    </Phone>,
+    <Phone key="and-ok" label="Pronto: o ícone na tela inicial">
+      <HomeScreen />
+    </Phone>,
+    <>
+      <div className="flex items-center gap-4 rounded-2xl bg-bg-alt p-4">
+        <img src="/icons/icon-192.png" alt="Ícone do Painel de Vendas" width={56} height={56} className="size-14 rounded-2xl" />
+        <p className="text-[15px]">
+          Procure este ícone, com o nome <strong>Vendas</strong>, na tela inicial do celular. Tocando nele, o painel abre em tela cheia,
+          como um aplicativo.
+        </p>
+      </div>
+      <Tip>
+        As telas do seu celular podem ser um pouco diferentes das ilustrações, dependendo da marca e do modelo. Os nomes dos botões
+        costumam ser os mesmos.
+      </Tip>
+    </>,
+  ],
+  sair: [
+    <Steps key="passos">
+      <li>
+        Para sair, toque em <strong>Sair</strong>, na faixa vermelha do topo. Faça isso sempre que usar um celular ou computador que não é
+        seu.
+      </li>
+      <li>Por segurança, depois de algumas horas o painel pede para você entrar de novo. É só digitar o CPF outra vez.</li>
+    </Steps>,
+    <Tip key="tip" kind="atencao">
+      Como a entrada é só com o CPF, <strong>não passe o seu CPF para colegas</strong> usarem o painel. Cada pessoa deve entrar com o
+      próprio CPF.
+    </Tip>,
+  ],
+  duvidas: [
+    <div key="1" className="space-y-2">
+      <Term name="Uma venda que fiz agora não apareceu.">
+        O painel mostra as vendas que já têm <strong>nota fiscal emitida</strong>. Assim que a nota for emitida, a venda aparece. Para
+        atualizar, feche o painel e abra de novo.
+      </Term>
+      <Term name="O valor está diferente do que eu esperava.">
+        O faturamento é <strong>líquido</strong>: as devoluções são descontadas no dia em que aconteceram. Confira a lista de últimas
+        vendas e devoluções.
+      </Term>
+    </div>,
+    <div key="2" className="space-y-2">
+      <Term name="Apareceu “Sua sessão expirou”.">Foi só o tempo de segurança. Digite o CPF de novo para entrar.</Term>
+      <Term name="Apareceu “Não foi possível carregar as vendas”.">
+        O sistema da loja demorou para responder. Espere um pouco e abra o painel de novo.
+      </Term>
+      <Term name="Sem internet funciona?">
+        Não. O painel precisa de internet para buscar os números. Sem conexão, aparece um aviso de “Sem conexão”.
+      </Term>
+    </div>,
+  ],
+};
+
 export default function HelpPage() {
-  return (
-    <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
-      <header className="bg-[#d71921] pt-[env(safe-area-inset-top)] text-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4">
-          <Logo variant="white" className="h-8 w-auto" title="Casa Contente" />
-          <Link href="/dashboard" className="rounded-full bg-white/15 px-4 py-2 font-title text-sm font-medium hover:bg-white/25">
-            Abrir o painel
-          </Link>
-        </div>
-        <div className="mx-auto max-w-3xl px-4 pt-4 pb-10">
-          <h1 className="text-3xl md:text-4xl">Como usar o Painel de Vendas</h1>
+  const cover: Story = {
+    section: null,
+    content: (
+      <div className="my-auto">
+        <div className="rounded-3xl bg-[#d71921] p-6 text-white">
+          <h1 className="text-3xl">Como usar o Painel de Vendas</h1>
           <p className="mt-2 text-lg text-white/90">Um guia passo a passo, com imagens, para acompanhar as suas vendas pelo celular.</p>
           <Smile className="mt-4 h-5 w-auto" />
         </div>
-      </header>
-
-      <main className="mx-auto -mt-4 max-w-3xl space-y-4 px-4 pb-16">
-        <nav aria-label="Conteúdo" className="rounded-3xl border border-line bg-surface p-5 md:p-8">
+        <nav aria-label="Conteúdo" className="mt-5">
           <h2 className="text-xl">Neste guia</h2>
-          <ol className="mt-3 grid gap-1 sm:grid-cols-2">
+          <ol className="mt-2 grid gap-0.5">
             {SECTIONS.map(([id, title], i) => (
               <li key={id}>
-                <a href={`#${id}`} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg-alt">
+                <a href={`#${id}`} className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-bg-alt">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft font-title text-sm font-semibold text-accent">
                     {i + 1}
                   </span>
@@ -240,341 +603,36 @@ export default function HelpPage() {
             ))}
           </ol>
         </nav>
+      </div>
+    ),
+  };
 
-        <Section id="o-que-e" n={1} title="O que é o painel">
-          <p>
-            O Painel de Vendas é uma página na internet que mostra <strong>quanto você vendeu</strong>: hoje, nesta semana, neste mês ou
-            em qualquer intervalo de datas que você escolher.
-          </p>
-          <p>
-            Os números vêm direto do sistema da loja (o <strong>Sankhya</strong>), o mesmo onde os pedidos são lançados. Você não precisa
-            digitar nada: é só entrar e olhar.
-          </p>
-          <ul className="list-disc space-y-1 pl-6">
-            <li>
-              <strong>Vendedor</strong> vê somente as próprias vendas.
-            </li>
-            <li>
-              <strong>Gerente</strong> vê as vendas da loja dele e de cada vendedor da loja.
-            </li>
-          </ul>
-          <Tip>Funciona em qualquer celular, tablet ou computador com internet. Não precisa baixar nada da loja de aplicativos.</Tip>
-        </Section>
+  const end: Story = {
+    section: null,
+    content: (
+      <div className="my-auto text-center">
+        <p className="text-5xl">🎉</p>
+        <h2 className="mt-4 text-2xl">Pronto!</h2>
+        <p className="mt-2 text-[17px] text-ink-2">Agora é só abrir o painel e acompanhar as suas vendas.</p>
+        <Smile className="mx-auto mt-6 h-5 w-auto" />
+      </div>
+    ),
+  };
 
-        <Section id="entrar" n={2} title="Como entrar">
-          <p>Para entrar você só precisa do seu <strong>CPF</strong>. Não existe senha.</p>
-          <Steps>
-            <li>Abra o endereço do painel no navegador do celular (o Chrome, no Android, ou o Safari, no iPhone).</li>
-            <li>
-              Toque no campo <strong>CPF</strong> e digite os 11 números do seu CPF. Pode digitar com ou sem pontos e traço.
-            </li>
-            <li>
-              Toque no botão vermelho <strong>Entrar</strong>.
-            </li>
-          </Steps>
-          <div className="grid items-start gap-2 sm:grid-cols-2">
-            <Shot name="login" alt="Tela de entrada com o logotipo da Casa Contente e o campo CPF" caption="A tela de entrada" narrow />
-            <div>
-              <Shot name="login-cpf" alt="Campo CPF preenchido com 123.456.789-09" caption="CPF digitado, pronto para entrar" />
-              <Shot name="login-erro" alt="Mensagem em vermelho: Informe um CPF válido" caption="Se aparecer uma mensagem em vermelho, confira o número" />
-            </div>
-          </div>
-          <p className="font-title text-lg font-semibold">E se não conseguir entrar?</p>
-          <div className="space-y-2">
-            <Term name="“Informe um CPF válido.”">Algum número foi digitado errado. Apague e digite de novo com calma.</Term>
-            <Term name="“CPF não encontrado como usuário no Sankhya.”">
-              Seu CPF ainda não está ligado a um usuário do sistema. Fale com o seu gerente ou com o setor de TI.
-            </Term>
-            <Term name="“Seu usuário não possui um vendedor vinculado…” ou “…está inativo.”">
-              Seu cadastro de vendedor precisa de ajuste. Fale com o seu gerente ou com o setor de TI.
-            </Term>
-            <Term name="“Muitas tentativas. Aguarde 15 minutos…”">
-              Por segurança, depois de 5 tentativas erradas o painel espera 15 minutos. Depois disso, tente de novo.
-            </Term>
-            <Term name="“Não foi possível conectar ao Sankhya.”">
-              O sistema da loja não respondeu. Confira se o celular está com internet e tente de novo em alguns minutos.
-            </Term>
-          </div>
-        </Section>
+  const slides: Story[] = [
+    cover,
+    ...SECTIONS.flatMap(([id, title], s) =>
+      CONTENT[id].map((content) => ({
+        section: s,
+        content: (
+          <Slide n={s + 1} title={title}>
+            {content}
+          </Slide>
+        ),
+      })),
+    ),
+    end,
+  ];
 
-        <Section id="tela" n={3} title="Conhecendo a tela">
-          <p>Depois de entrar, você vê a tela principal. De cima para baixo, ela tem:</p>
-          <Shot name="painel" alt="Tela principal do painel com cabeçalho vermelho, filtros e indicadores" caption="A tela principal do painel" narrow />
-          <Steps>
-            <li>
-              <strong>Faixa vermelha</strong> no topo, com o seu nome, se você é vendedor ou gerente, e o botão <strong>Sair</strong>.
-            </li>
-            <li>
-              <strong>Botões de período</strong> (Hoje, Semana, Mês, Período) e o botão do <strong>cartão de visita</strong>.
-            </li>
-            <li>
-              <strong>Quatro quadros com os números principais</strong>: faturamento, pedidos, ticket médio e clientes.
-            </li>
-            <li>
-              <strong>Gráfico</strong> com quanto foi vendido em cada dia.
-            </li>
-            <li>
-              <strong>Listas</strong>: produtos mais vendidos, principais clientes e últimas vendas.
-            </li>
-          </Steps>
-          <Shot name="cabecalho" alt="Faixa vermelha com o logotipo, o nome LUCAS, a função Gerente e o botão Sair" caption="A faixa do topo mostra quem está usando o painel" />
-          <Tip>Para ver tudo, arraste a tela para cima com o dedo, como em qualquer site.</Tip>
-        </Section>
-
-        <Section id="periodo" n={4} title="Escolhendo o período">
-          <p>Os botões arredondados no topo escolhem <strong>de quais dias</strong> você quer ver as vendas. O botão vermelho é o que está escolhido.</p>
-          <Shot name="filtros" alt="Botões Hoje, Semana, Mês e Período, com Mês selecionado em vermelho" />
-          <div className="space-y-2">
-            <Term name="Hoje">Só as vendas de hoje.</Term>
-            <Term name="Semana">A semana atual, de segunda-feira a sábado.</Term>
-            <Term name="Mês">O mês atual inteiro, do dia 1º até o último dia. É o que aparece quando você entra.</Term>
-            <Term name="Período">Você escolhe a data de início e a data de fim. Bom para comparar uma quinzena, por exemplo.</Term>
-          </div>
-          <p>
-            Para usar o <strong>Período</strong>: toque nele, toque em cada data para escolher no calendário e depois toque em{" "}
-            <strong>Aplicar período</strong>.
-          </p>
-          <Shot name="filtro-periodo" alt="Campos de data inicial 01/10/2026 e final 22/10/2026 e o botão Aplicar período" caption="Escolhendo um período personalizado" />
-          <p>Logo abaixo dos botões aparece, em letras pequenas, o período que está sendo mostrado:</p>
-          <Shot name="periodo-texto" alt="Texto: 01/10/2026 – 31/10/2026" />
-        </Section>
-
-        <Section id="numeros" n={5} title="Entendendo os números">
-          <p>Os quatro quadros resumem as vendas do período escolhido.</p>
-          <Shot name="indicadores" alt="Quatro quadros: Faturamento líquido, Pedidos, Ticket médio e Clientes" />
-          <div className="space-y-2">
-            <Term name="Faturamento líquido">
-              Quanto foi vendido em reais, <strong>já descontando as devoluções</strong>. Quando houve devolução, aparece embaixo, em
-              vermelho, quanto foi devolvido.
-            </Term>
-            <Term name="Pedidos">Quantas vendas foram feitas. Devoluções não contam aqui.</Term>
-            <Term name="Ticket médio">
-              Quanto, em média, cada pedido rendeu. É o faturamento dividido pelo número de pedidos. Se subiu, os clientes estão
-              comprando mais em cada compra.
-            </Term>
-            <Term name="Clientes">Quantos clientes diferentes compraram. Um cliente que comprou duas vezes conta uma vez só.</Term>
-          </div>
-          <p className="font-title text-lg font-semibold">As setinhas verdes e vermelhas</p>
-          <Shot name="indicador-faturamento" alt="Quadro de faturamento com seta verde para cima: 13,9%" narrow />
-          <ul className="list-disc space-y-1 pl-6">
-            <li>
-              <span className="font-semibold text-good">▲ verde</span>: você está <strong>melhor</strong> que no período anterior.
-            </li>
-            <li>
-              <span className="font-semibold text-bad">▼ vermelha</span>: você está <strong>abaixo</strong> do período anterior.
-            </li>
-          </ul>
-          <Tip>
-            A comparação é justa: se hoje é dia 22, o mês atual é comparado com o mês passado <strong>até o dia 22</strong>, e não com o
-            mês passado inteiro. Na semana, vale o mesmo: até o mesmo dia da semana.
-          </Tip>
-        </Section>
-
-        <Section id="grafico" n={6} title="O gráfico de vendas por dia">
-          <p>
-            Cada <strong>barra vermelha é um dia</strong>. Quanto mais alta a barra, mais foi vendido naquele dia. Os dias que ainda não
-            chegaram aparecem vazios.
-          </p>
-          <Shot name="grafico" alt="Gráfico de barras vermelhas do faturamento por dia em outubro" />
-          <p>
-            <strong>Toque em uma barra</strong> para ver o dia, o valor exato e quantos pedidos foram feitos.
-          </p>
-          <Shot name="grafico-detalhe" alt="Gráfico com um balão mostrando 11/10/2026, R$ 10.190,00, 3 pedidos" caption="Tocando em uma barra aparecem os detalhes do dia" />
-          <Tip kind="atencao">
-            Uma barra <strong>para baixo da linha do zero</strong> é um dia em que as devoluções foram maiores que as vendas.
-          </Tip>
-          <p>
-            Prefere números a gráfico? Toque em <strong>Ver em tabela</strong>, embaixo do gráfico, e aparece a lista dia a dia.
-          </p>
-          <Shot name="grafico-tabela" alt="Tabela com data, número de pedidos e valor de cada dia" narrow />
-        </Section>
-
-        <Section id="listas" n={7} title="As listas">
-          <p>
-            Cada lista mostra os maiores primeiro. A <strong>barrinha vermelha</strong> embaixo de cada nome ajuda a comparar: quanto mais
-            cheia, mais vendeu.
-          </p>
-          <Shot name="produtos" alt="Lista de produtos mais vendidos com valor e quantidade" caption="Produtos mais vendidos: valor e quantidade (un. = unidades)" />
-          <Shot name="clientes" alt="Lista dos principais clientes com valor e número de pedidos" caption="Principais clientes: quem mais comprou no período" />
-          <p>
-            No fim da página ficam as <strong>últimas vendas e devoluções</strong>, da mais recente para a mais antiga, com a data, o número
-            da nota e o valor.
-          </p>
-          <Shot name="ultimas" alt="Lista das últimas vendas, com uma devolução marcada em vermelho" caption="Devoluções aparecem com a etiqueta “Devolução” e o valor em vermelho, com sinal de menos" />
-        </Section>
-
-        <Section id="gerentes" n={8} title="Para gerentes">
-          <p>Quem é gerente tem duas coisas a mais:</p>
-          <Steps>
-            <li>
-              Uma caixa <strong>Todos os vendedores</strong>, logo abaixo dos períodos. Toque nela e escolha um nome para ver só as
-              vendas daquele vendedor. Para voltar a ver todos, escolha <strong>Todos os vendedores</strong>.
-            </li>
-            <li>
-              O <strong>Ranking de vendedores</strong>, com quem vendeu mais no período. Tocar no nome de um vendedor abre as vendas dele.
-            </li>
-          </Steps>
-          <Shot name="ranking" alt="Ranking de vendedores: LUCAS, ANA e BRUNO, com valores e pedidos" />
-          <p>
-            Para comparação, o vendedor não tem a caixa de escolher vendedor nem o ranking: ele vê só as próprias vendas.
-          </p>
-          <Shot name="filtros-vendedor" alt="Botões de período sem a caixa de escolher vendedor" caption="Como o vendedor vê os botões do topo" />
-        </Section>
-
-        <Section id="cartao" n={9} title="Cartão de visita (WhatsApp)">
-          <p>
-            O painel tem um <strong>cartão de visita digital</strong> para mostrar ao cliente. Ele tem o seu nome e o seu WhatsApp, e o
-            cliente pode falar com você só apontando a câmera do celular.
-          </p>
-          <Steps>
-            <li>
-              Toque no botão do cartão, ao lado dos períodos (o desenho de um cartãozinho; no computador aparece escrito <strong>Cartão</strong>).
-            </li>
-            <li>
-              Aparece o cartão vermelho com o <strong>QR code</strong> (o quadrado de pontinhos).
-            </li>
-            <li>
-              Se quiser mostrar o seu nome e telefone escritos, <strong>toque no cartão</strong>: ele vira para o lado amarelo. Tocando de
-              novo, volta para o QR code.
-            </li>
-            <li>
-              Mostre a tela para o cliente. Ele abre a câmera do celular dele, aponta para o QR code e toca no aviso que aparece: o
-              WhatsApp abre já na conversa com você.
-            </li>
-            <li>
-              Para fechar, toque em <strong>Fechar</strong> ou fora do cartão.
-            </li>
-          </Steps>
-          <div className="grid grid-cols-2 gap-3">
-            <Shot name="cartao-verso" alt="Lado vermelho do cartão, com o QR code do WhatsApp" caption="Primeiro aparece o QR code" />
-            <Shot name="cartao-frente" alt="Lado amarelo do cartão, com logotipo, nome, cargo e telefone" caption="Tocando, aparece nome e telefone" />
-          </div>
-          <Tip>Aumente o brilho da tela antes de mostrar o QR code: a câmera do cliente lê mais rápido.</Tip>
-          <Tip kind="atencao">
-            Se aparecer “Telefone não cadastrado”, o seu celular não está no cadastro de funcionário do sistema. Peça para o seu gerente
-            atualizar.
-          </Tip>
-        </Section>
-
-        <Section id="instalar" n={10} title="Instalar no celular">
-          <p>
-            Você pode colocar o painel na tela inicial do celular, <strong>como se fosse um aplicativo</strong>. Assim não precisa
-            digitar o endereço toda vez: é só tocar no ícone.
-          </p>
-
-          <h3 className="pt-2 font-title text-xl font-semibold">📱 iPhone (Safari)</h3>
-          <Steps>
-            <li>
-              Abra o painel no <strong>Safari</strong> (o navegador com a bússola azul).
-            </li>
-            <li>
-              Toque no botão <strong>Compartilhar</strong>: o quadrado com uma seta para cima, na barra de baixo.
-            </li>
-            <li>
-              Arraste a lista para cima e toque em <strong>Adicionar à Tela de Início</strong>.
-            </li>
-            <li>
-              Toque em <strong>Adicionar</strong>, no canto de cima.
-            </li>
-          </Steps>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Phone label="Passo 2: toque em Compartilhar">
-              <MiniApp />
-              <SafariBar highlight />
-            </Phone>
-            <Phone label="Passo 3: Adicionar à Tela de Início">
-              <MiniApp />
-              <MenuSheet items={["Copiar", "Adicionar aos Favoritos", "Adicionar à Tela de Início", "Imprimir"]} active="Adicionar à Tela de Início" />
-            </Phone>
-            <Phone label="Pronto: o ícone na tela inicial">
-              <HomeScreen />
-            </Phone>
-          </div>
-
-          <h3 className="pt-2 font-title text-xl font-semibold">🤖 Android (Chrome)</h3>
-          <Steps>
-            <li>
-              Abra o painel no <strong>Chrome</strong> (o navegador redondo colorido).
-            </li>
-            <li>
-              Toque nos <strong>três pontinhos</strong> (⋮), no canto de cima à direita.
-            </li>
-            <li>
-              Toque em <strong>Instalar app</strong> (em alguns celulares aparece <strong>Adicionar à tela inicial</strong>).
-            </li>
-            <li>
-              Confirme tocando em <strong>Instalar</strong>.
-            </li>
-          </Steps>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Phone label="Passo 2: toque nos três pontinhos">
-              <ChromeBar highlight />
-              <MiniApp />
-            </Phone>
-            <Phone label="Passo 3: Instalar app">
-              <ChromeBar />
-              <MiniApp />
-              <MenuSheet items={["Nova guia", "Histórico", "Compartilhar…", "Instalar app", "Configurações"]} active="Instalar app" />
-            </Phone>
-            <Phone label="Pronto: o ícone na tela inicial">
-              <HomeScreen />
-            </Phone>
-          </div>
-          <div className="flex items-center gap-4 rounded-2xl bg-bg-alt p-4">
-                  <img src="/icons/icon-192.png" alt="Ícone do Painel de Vendas" width={56} height={56} className="size-14 rounded-2xl" />
-            <p className="text-[15px]">
-              Procure este ícone, com o nome <strong>Vendas</strong>, na tela inicial do celular. Tocando nele, o painel abre em tela cheia,
-              como um aplicativo.
-            </p>
-          </div>
-          <Tip>
-            As telas do seu celular podem ser um pouco diferentes das ilustrações, dependendo da marca e do modelo. Os nomes dos botões
-            costumam ser os mesmos.
-          </Tip>
-        </Section>
-
-        <Section id="sair" n={11} title="Sair e segurança">
-          <Steps>
-            <li>
-              Para sair, toque em <strong>Sair</strong>, na faixa vermelha do topo. Faça isso sempre que usar um celular ou computador
-              que não é seu.
-            </li>
-            <li>
-              Por segurança, depois de algumas horas o painel pede para você entrar de novo. É só digitar o CPF outra vez.
-            </li>
-          </Steps>
-          <Tip kind="atencao">
-            Como a entrada é só com o CPF, <strong>não passe o seu CPF para colegas</strong> usarem o painel. Cada pessoa deve entrar com o
-            próprio CPF.
-          </Tip>
-        </Section>
-
-        <Section id="duvidas" n={12} title="Dúvidas frequentes">
-          <div className="space-y-2">
-            <Term name="Uma venda que fiz agora não apareceu.">
-              O painel mostra as vendas que já têm <strong>nota fiscal emitida</strong>. Assim que a nota for emitida, a venda aparece.
-              Para atualizar, feche o painel e abra de novo.
-            </Term>
-            <Term name="O valor está diferente do que eu esperava.">
-              O faturamento é <strong>líquido</strong>: as devoluções são descontadas no dia em que aconteceram. Confira a lista de
-              últimas vendas e devoluções.
-            </Term>
-            <Term name="Apareceu “Sua sessão expirou”.">Foi só o tempo de segurança. Digite o CPF de novo para entrar.</Term>
-            <Term name="Apareceu “Não foi possível carregar as vendas”.">
-              O sistema da loja demorou para responder. Espere um pouco e abra o painel de novo.
-            </Term>
-            <Term name="Sem internet funciona?">
-              Não. O painel precisa de internet para buscar os números. Sem conexão, aparece um aviso de “Sem conexão”.
-            </Term>
-          </div>
-        </Section>
-
-        <div className="pt-4 text-center">
-          <Link href="/dashboard" className="inline-block rounded-full bg-accent px-8 py-3 font-title text-base font-medium text-white hover:bg-accent-dark">
-            Abrir o painel
-          </Link>
-        </div>
-      </main>
-    </div>
-  );
+  return <Stories sections={SECTIONS} slides={slides} />;
 }
