@@ -38,6 +38,7 @@ export async function adminLogin(_prev: AdminState, form: FormData): Promise<Adm
   }
 
   clearFailures(key);
+  // Substitui a sessão que estiver aberta no aparelho (ex.: de um gerente)
   await createSession({ role: "admin", nome: "Administrador", apelido: "Admin", codfunc: 0, codvend: 0, codemp: 0 });
   console.info(`[admin] login ok (ip ${ip})`);
   redirect("/admin");

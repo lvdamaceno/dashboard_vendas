@@ -20,7 +20,8 @@ export async function proxy(request: NextRequest) {
     res.cookies.delete(SESSION_COOKIE);
     return res;
   }
-  if (isAdminArea && session.role !== "admin") return NextResponse.redirect(new URL("/dashboard", request.url));
+  // Sessão de vendedor/gerente/master no admin: vai para o login do admin (entrar troca a sessão)
+  if (isAdminArea && session.role !== "admin") return NextResponse.redirect(new URL("/admin/login", request.url));
   return NextResponse.next();
 }
 
