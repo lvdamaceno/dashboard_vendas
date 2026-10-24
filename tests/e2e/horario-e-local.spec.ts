@@ -82,5 +82,18 @@ test.describe("horário e local de acesso", () => {
     await page.getByRole("button", { name: "Tentar de novo" }).click();
     await expect(page).toHaveURL(/3123\/dashboard$/);
     await expect(page.getByText("Vendedor · 901")).toBeVisible();
+
+    // A tela Saúde do admin mostra que a trava está valendo, com a confirmação e o bloqueio registrados
+    await asAdmin(page, context);
+    await page.goto("/admin?aba=saude");
+    const trava = page.locator("section", { has: page.getByRole("heading", { name: "Trava de horário e local" }) });
+    await expect(trava.getByText("Trava de local valendo", { exact: true })).toBeVisible();
+    // Os registros vão para o banco a cada 5 s
+    await expect(async () => {
+      await page.reload();
+      await expect(trava.getByText("ANA PAULA (vendedor) confirmou o local: Loja Teste")).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(trava.getByText("ANA PAULA (vendedor) fora dos locais permitidos")).toBeVisible();
+    await expect(trava.getByText(/^Funcionando: 1 confirmações de local de 1 pessoa/)).toBeVisible();
   });
 });

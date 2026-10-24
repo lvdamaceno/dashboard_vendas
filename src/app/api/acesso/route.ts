@@ -15,6 +15,8 @@ const posicao = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   precisao: z.number().nonnegative().max(1_000_000),
+  /** Primeira confirmação (tela /acesso); as renovações a cada 5 min não vão para o log */
+  inicial: z.boolean().optional(),
 });
 
 const fmtDist = (m: number) => (m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`);
@@ -31,6 +33,9 @@ export async function POST(request: NextRequest) {
 
   const r = checkPlace(locais, parsed.data);
   if (r.ok) {
+    if (parsed.data.inicial) {
+      console.info(`[acesso] ${session.apelido} (${session.role}) confirmou o local: ${r.local.nome} (a ${fmtDist(r.distancia)}, margem ±${Math.round(parsed.data.precisao)} m)`);
+    }
     const res = NextResponse.json({ ok: true, local: r.local.nome });
     res.cookies.set(await placeCookie(session, r.local.id));
     return res;

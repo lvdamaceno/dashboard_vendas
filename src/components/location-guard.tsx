@@ -8,8 +8,8 @@ const REFRESH_MS = 5 * 60_000;
 /** offline: falhou a conexão, não a localização */
 export type LocationResult = { ok: true; local?: string } | { ok: false; error: string; offline?: boolean };
 
-/** Pede a localização ao aparelho e confere no servidor (/api/acesso). */
-export async function confirmLocation(): Promise<LocationResult> {
+/** Pede a localização ao aparelho e confere no servidor (/api/acesso). inicial: tela de confirmação (vai para o log). */
+export async function confirmLocation(inicial = false): Promise<LocationResult> {
   if (!("geolocation" in navigator)) return { ok: false, error: "Este navegador não informa a localização. Use o Chrome ou o Safari." };
   let pos: GeolocationPosition;
   try {
@@ -29,7 +29,7 @@ export async function confirmLocation(): Promise<LocationResult> {
   const res = await fetch("/api/acesso", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, precisao: pos.coords.accuracy }),
+    body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, precisao: pos.coords.accuracy, inicial }),
   }).catch(() => null);
   if (!res) return { ok: false, error: "Sem conexão. Tente de novo.", offline: true };
   if (res.status === 401) {

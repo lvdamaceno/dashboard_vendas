@@ -10,7 +10,7 @@ export function LocationCheck({ volta }: { volta: string }) {
 
   const conferir = useCallback(async () => {
     setEstado({ status: "conferindo" });
-    const r = await confirmLocation();
+    const r = await confirmLocation(true);
     if (!r.ok) return setEstado({ status: "erro", error: r.error });
     setEstado({ status: "ok", local: r.local });
     // Navegação completa: o proxy confere o cookie novo
