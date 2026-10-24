@@ -63,6 +63,7 @@ const GIFS = {
 const SECTIONS = [
   ["o-que-e", "O que é o painel"],
   ["entrar", "Como entrar"],
+  ["localizacao", "Horário e localização"],
   ["tela", "Conhecendo a tela"],
   ["fila", "Fila de atendimento"],
   ["notificacoes", "Notificações no celular"],
@@ -257,6 +258,28 @@ function HomeScreen() {
   );
 }
 
+/** Tela de confirmação de local com a pergunta do navegador por cima (Permitir em destaque). */
+function LocationPrompt() {
+  return (
+    <div className="relative flex h-full flex-col items-center px-4 pt-8 text-center">
+      <Logo className="h-6 w-auto" />
+      <p className="mt-4 font-title text-sm font-semibold">Confirme onde você está</p>
+      <p className="mt-1 text-[10px] text-[#6b655e]">O painel só abre nas lojas e locais autorizados.</p>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-x-2 bottom-3 rounded-2xl bg-white p-3 text-left shadow-xl">
+        <p className="text-[11px] leading-snug font-semibold">vendedor.casacontente quer saber a sua localização</p>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[11px] font-semibold">
+          <span className="rounded-full py-1.5 text-[#857e75] ring-1 ring-[#e7e1d8]">Bloquear</span>
+          <span className="relative rounded-full bg-[#d71921] py-1.5 text-white">
+            Permitir
+            <Highlight className="-inset-1" />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Cada seção vira algumas telas curtas, na mesma ordem do guia
 const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
   "o-que-e": [
@@ -324,6 +347,92 @@ const CONTENT: Record<(typeof SECTIONS)[number][0], React.ReactNode[]> = {
           O sistema da loja não respondeu. Confira se o celular está com internet e tente de novo em alguns minutos.
         </Term>
       </div>
+    </>,
+  ],
+  localizacao: [
+    <>
+      <p>
+        O painel tem duas regras para <strong>vendedores e gerentes</strong>:
+      </p>
+      <div className="space-y-2">
+        <Term name="🕗 Só no horário comercial">
+          O painel funciona no horário de expediente da loja. Fora desse horário ele não abre. Se estiver aberto quando o horário acabar, ele
+          fecha sozinho na próxima tela.
+        </Term>
+        <Term name="📍 Só na loja">
+          O painel só abre quando você está na loja. Para saber disso, ele usa a <strong>localização do celular</strong>.
+        </Term>
+      </div>
+    </>,
+    <>
+      <p>
+        Ao abrir o painel, aparece a tela <strong>Confirme onde você está</strong> e o celular pergunta se pode usar a sua localização.
+      </p>
+      <Steps>
+        <li>
+          Toque em <strong>Permitir</strong>.
+        </li>
+        <li>O painel confere que você está na loja e abre sozinho.</li>
+      </Steps>
+      <Phone label="Toque em Permitir">
+        <LocationPrompt />
+      </Phone>
+    </>,
+    <>
+      <Tip kind="atencao">
+        Sem permitir a localização, <strong>o painel não abre</strong>. Deixe também a <strong>Localização (GPS)</strong> do celular ligada
+        enquanto estiver usando: com o painel aberto, ele confere de novo de tempos em tempos.
+      </Tip>
+      <Tip>
+        O painel usa a localização <strong>só para conferir se você está na loja</strong>. Ele não fica registrando por onde você anda.
+      </Tip>
+    </>,
+    <>
+      <p className="font-title text-lg font-semibold">Tocou em “Bloquear” sem querer?</p>
+      <div className="space-y-2">
+        <Term name="Android">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>
+              Puxe a barra de cima da tela e <strong>ligue a Localização</strong>.
+            </li>
+            <li>
+              No navegador, toque no <strong>ícone à esquerda do endereço</strong> do site.
+            </li>
+            <li>
+              Toque em <strong>Permissões</strong> e ligue a <strong>Localização</strong>.
+            </li>
+          </ol>
+        </Term>
+        <Term name="iPhone">
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>
+              Abra <strong>Ajustes › Privacidade e Segurança › Serviços de Localização</strong> e ligue.
+            </li>
+            <li>
+              Na mesma tela, toque em <strong>Sites do Safari</strong> e escolha <strong>Durante o Uso</strong>.
+            </li>
+          </ol>
+        </Term>
+      </div>
+      <p>
+        Depois, volte ao painel e toque em <strong>Tentar de novo</strong>.
+      </p>
+    </>,
+    <>
+      <p className="font-title text-lg font-semibold">Mensagens que podem aparecer</p>
+      <div className="space-y-2">
+        <Term name="“O painel só abre nas lojas e locais autorizados. Você está a…”">
+          O celular está longe da loja. Se você está dentro da loja, saia para perto da porta ou de uma janela e toque em Tentar de novo.
+        </Term>
+        <Term name="“Não deu para saber com precisão onde você está.”">
+          O celular não achou a sua posição direito. Ligue o GPS e o Wi-Fi e toque em Tentar de novo.
+        </Term>
+        <Term name="“A localização está bloqueada para o painel.”">Veja a tela anterior: é preciso liberar a localização.</Term>
+        <Term name="“Fora do horário de acesso. O painel abre…”">
+          O painel está fora do horário comercial. A mensagem diz quando ele abre de novo.
+        </Term>
+      </div>
+      <Tip>Ainda não deu? Fale com o seu gerente.</Tip>
     </>,
   ],
   tela: [
