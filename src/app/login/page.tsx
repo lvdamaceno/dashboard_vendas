@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ expirada?: string }> }) {
-  const { expirada } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ expirada?: string; fora?: string }> }) {
+  const { expirada, fora } = await searchParams;
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -12,6 +12,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl">Painel de Vendas</h1>
           <p className="mt-1 text-sm text-ink-2">Entre com seu CPF</p>
         </div>
+        {fora === "horario" && (
+          <p className="mb-4 rounded-2xl border border-line bg-surface px-3 py-2 text-center text-sm text-ink-2">
+            O horário de acesso ao painel terminou. Você poderá entrar de novo no próximo horário liberado.
+          </p>
+        )}
         {expirada && (
           <p className="mb-4 rounded-2xl border border-line bg-surface px-3 py-2 text-center text-sm text-ink-2">
             Sua sessão expirou. Entre novamente.

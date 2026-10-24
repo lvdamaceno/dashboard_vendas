@@ -4,6 +4,7 @@ import { stopViewAs } from "@/app/admin/actions";
 import type { Notice } from "@/lib/painel";
 import type { Session } from "@/lib/session";
 import { FeedbackButton } from "./feedback-button";
+import { LocationGuard } from "./location-guard";
 import { Logo } from "./logo";
 import { NoticeBell } from "./notice-bell";
 
@@ -97,6 +98,8 @@ export function Shell({ session, notices, stores = [], scope, feedback = true, c
       {/* pb-20: o fim da página não fica escondido atrás do botão flutuante */}
       <main className={`mx-auto max-w-6xl space-y-3 px-4 pt-4 md:space-y-4 md:pt-6 ${feedback ? "pb-20" : "pb-4 md:pb-6"}`}>{children}</main>
       {feedback && <FeedbackButton />}
+      {/* Trava de local do admin: confirma de novo onde o aparelho está enquanto a tela fica aberta */}
+      {(session.role === "vendedor" || session.role === "gerente") && <LocationGuard />}
     </div>
   );
 }

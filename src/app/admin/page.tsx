@@ -9,8 +9,9 @@ import { countPendingFeedback, listFeedback, listMasters, listNotices, type Feed
 import { listPeopleForAdmin } from "@/lib/people";
 import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
-import { deleteMaster, removeNotice, removeReminder, resetMasterPasswordAction, toggleFeedback, toggleReminder } from "./actions";
-import { ConfirmButton, MasterForm, NoticeForm, ReminderForm } from "./forms";
+import { deleteMaster, removeNotice, removePlace, removeReminder, resetMasterPasswordAction, toggleFeedback, togglePlace, toggleReminder } from "./actions";
+import { AccessRuleForm, ConfirmButton, MasterForm, NoticeForm, PlaceForm, ReminderForm } from "./forms";
+import { listAccessRules, listPlaces, PAPEIS } from "@/lib/acesso";
 import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
 import { configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type Check } from "@/lib/health";
 import type { Nivel } from "@/lib/monitor";
@@ -26,6 +27,7 @@ const TABS = [
   { value: "avisos", label: "Avisos" },
   { value: "lembretes", label: "Lembretes" },
   { value: "masters", label: "Usuários master" },
+  { value: "acesso", label: "Horário e local" },
   { value: "paineis", label: "Ver painéis" },
   { value: "telefones", label: "Telefones" },
   { value: "feriados", label: "Feriados" },
@@ -182,6 +184,93 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
                         Remover
                       </ConfirmButton>
                     </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      );
+    }
+
+    if (tab === "acesso") {
+      const [regras, locais] = await Promise.all([listAccessRules(), listPlaces()]);
+      const porPapel = new Map(regras.map((r) => [r.papel, r]));
+      const semLocais = regras.some((r) => r.local) && !locais.some((l) => l.ativo);
+      return (
+        <>
+          <section className={card}>
+            <h2 className="mb-1 text-base">Horário e local de acesso</h2>
+            <p className="mb-3 text-sm text-ink-2">
+              Vale por grupo, no horário de Brasília. Fora do horário, o grupo não consegue entrar e quem estiver usando é desconectado na
+              próxima tela. Com a trava de local, o painel pede a localização do aparelho, só abre perto de um dos locais cadastrados abaixo e
+              confere de novo a cada 5 minutos. Diretoria (master) e admin nunca são bloqueados.
+            </p>
+            {semLocais && (
+              <p className="mb-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-bad">
+                A trava de local está ligada, mas não há nenhum local ativo: ela só passa a valer depois que você cadastrar um local.
+              </p>
+            )}
+            <div className="grid gap-6 md:grid-cols-2">
+              {PAPEIS.map((p) => {
+                const r = porPapel.get(p.value);
+                return (
+                  <div key={p.value} className="space-y-2">
+                    <AccessRuleForm papel={p.value} label={p.label} regra={r} />
+                    {r?.atualizadoEm && <p className="text-xs text-ink-3">Alterado por {r.autorNome} em {when.format(r.atualizadoEm)}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+          <section className={card}>
+            <h2 className="mb-1 text-base">Novo local permitido</h2>
+            <p className="mb-3 text-sm text-ink-2">
+              Lojas e outros endereços onde o painel pode ser aberto. Busque o endereço no mapa, toque em <strong>Estou no local</strong> estando
+              lá, ou cole as coordenadas do Google Maps (clique com o botão direito no ponto). Confira sempre o ponto no mapa. O raio de 150 m
+              cobre a loja e a calçada; dentro de prédios o GPS erra mais, então aumente se alguém for barrado estando na loja.
+            </p>
+            <PlaceForm />
+          </section>
+          <section className={card}>
+            <h2 className="mb-3 text-base">Locais permitidos</h2>
+            {locais.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-3">Nenhum local cadastrado.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {locais.map((l) => (
+                  <li key={l.id} className={`flex flex-wrap items-start gap-3 py-3 ${l.ativo ? "" : "opacity-60"}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{l.nome}</p>
+                      {l.endereco && <p className="text-sm text-ink-2">{l.endereco}</p>}
+                      <p className="mt-1 text-xs text-ink-3">
+                        Raio de {l.raio} m ·{" "}
+                        <a
+                          href={`https://www.google.com/maps?q=${l.lat},${l.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent underline-offset-4 hover:underline"
+                        >
+                          ver no mapa ↗
+                        </a>
+                        {!l.ativo && <> · desativado</>}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <form action={togglePlace}>
+                        <input type="hidden" name="id" value={l.id} />
+                        <input type="hidden" name="ativo" value={l.ativo ? "0" : "1"} />
+                        <button type="submit" className={small}>
+                          {l.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                      </form>
+                      <form action={removePlace}>
+                        <input type="hidden" name="id" value={l.id} />
+                        <ConfirmButton message={`Remover o local "${l.nome}"?`} className={small}>
+                          Remover
+                        </ConfirmButton>
+                      </form>
+                    </div>
                   </li>
                 ))}
               </ul>

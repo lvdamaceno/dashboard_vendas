@@ -193,3 +193,28 @@ CREATE TABLE IF NOT EXISTS painel.atendimento (
 );
 CREATE INDEX IF NOT EXISTS atendimento_loja_dia_idx ON painel.atendimento (codemp, dia);
 CREATE INDEX IF NOT EXISTS atendimento_aberto_idx ON painel.atendimento (codvend) WHERE fim IS NULL;
+
+-- Controle de acesso por grupo (papel), configurado no admin. Diretoria (master) e admin nunca são bloqueados.
+-- horario: só entra nas janelas de "janelas" (7 posições, 0 = domingo … 6 = sábado; null = não abre no dia),
+--   ex.: [null, {"inicio": "08:00", "fim": "18:30"}, …], horário de Brasília.
+-- local: só abre perto de um dos locais ativos de painel.acesso_local (localização do aparelho).
+CREATE TABLE IF NOT EXISTS painel.acesso_regra (
+  papel         text PRIMARY KEY CHECK (papel IN ('vendedor', 'gerente')),
+  horario       boolean NOT NULL DEFAULT false,
+  janelas       jsonb NOT NULL DEFAULT '[]',
+  local         boolean NOT NULL DEFAULT false,
+  autor_nome    text NOT NULL,
+  atualizado_em timestamptz NOT NULL DEFAULT now()
+);
+
+-- Locais onde o painel pode ser aberto (lojas e outros endereços), com o raio aceito em metros.
+CREATE TABLE IF NOT EXISTS painel.acesso_local (
+  id        serial PRIMARY KEY,
+  nome      text NOT NULL CHECK (length(nome) BETWEEN 1 AND 120),
+  endereco  text CHECK (length(endereco) <= 300),
+  lat       double precision NOT NULL CHECK (lat BETWEEN -90 AND 90),
+  lng       double precision NOT NULL CHECK (lng BETWEEN -180 AND 180),
+  raio      integer NOT NULL DEFAULT 150 CHECK (raio BETWEEN 30 AND 5000),
+  ativo     boolean NOT NULL DEFAULT true,
+  criado_em timestamptz NOT NULL DEFAULT now()
+);

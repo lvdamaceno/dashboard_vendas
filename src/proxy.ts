@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { CLEAR_LOCAL_COOKIE, LOCAL_COOKIE, requirements, scheduleBlock, validPlaceCookie } from "@/lib/acesso";
 import { ADMIN_HINT_COOKIE, CLEAR_SESSION_COOKIE, decryptSession, SESSION_COOKIE } from "@/lib/session";
 
 // Barreira inicial: sem sessão válida, nada além do login é acessível.
@@ -22,6 +23,28 @@ export async function proxy(request: NextRequest) {
     const res = NextResponse.redirect(new URL(request.cookies.get(ADMIN_HINT_COOKIE) ? "/admin" : "/login", request.url));
     res.cookies.set(CLEAR_SESSION_COOKIE);
     return res;
+  }
+
+  // Horário e local permitidos para o grupo (aba "Horário e local" do admin)
+  const exige = await requirements(session.role);
+  const isApi = pathname.startsWith("/api/");
+  const bloqueio = exige.horario && scheduleBlock(exige.horario);
+  if (bloqueio) {
+    // Fora do horário a sessão acaba; o login explica até quando
+    console.info(`[login] ${session.apelido} (${session.role}) desconectado: fora do horário de acesso`);
+    const res = isApi
+      ? NextResponse.json({ error: bloqueio }, { status: 401 })
+      : NextResponse.redirect(new URL("/login?fora=horario", request.url));
+    res.cookies.set(CLEAR_SESSION_COOKIE);
+    res.cookies.set(CLEAR_LOCAL_COOKIE);
+    return res;
+  }
+  // A tela /acesso e /api/acesso confirmam o local, então ficam abertas para quem ainda não confirmou
+  const confirmandoLocal = pathname === "/acesso" || pathname === "/api/acesso";
+  if (exige.locais && !confirmandoLocal && !(await validPlaceCookie(request.cookies.get(LOCAL_COOKIE)?.value, session))) {
+    if (isApi) return NextResponse.json({ error: "Confirme a sua localização." }, { status: 401 });
+    const volta = pathname + request.nextUrl.search;
+    return NextResponse.redirect(new URL(`/acesso?${new URLSearchParams({ volta })}`, request.url));
   }
   return NextResponse.next();
 }

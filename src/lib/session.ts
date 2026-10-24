@@ -69,6 +69,9 @@ function key() {
   return keyPromise;
 }
 
+/** A mesma chave, para outros cookies criptografados (ex.: confirmação de local em src/lib/acesso.ts). */
+export const sessionKey = key;
+
 export async function encryptSession(session: Session) {
   return new EncryptJWT({ ...session })
     .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
