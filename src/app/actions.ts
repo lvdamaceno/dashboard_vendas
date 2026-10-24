@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import QRCode from "qrcode";
+import { requirements, scheduleBlock } from "@/lib/acesso";
 import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-limit";
 import { fetchProfile, ProfileError } from "@/lib/sankhya/profile";
 import { fetchContact } from "@/lib/sankhya/contact";
@@ -28,6 +29,12 @@ function validCpf(cpf: string) {
 
 // Não grava o CPF completo nos logs
 const masked = (cpf: string) => `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**`;
+
+/** Horário de acesso do grupo (aba "Horário e local" do admin; só vendedor e gerente): mensagem se estiver fora, senão null. */
+async function outsideHours(role: Parameters<typeof requirements>[0]) {
+  const { horario } = await requirements(role);
+  return horario && scheduleBlock(horario);
+}
 
 export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
   const raw = typeof form.get("cpf") === "string" ? String(form.get("cpf")).slice(0, 20) : "";
@@ -79,6 +86,11 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
 
   try {
     const profile = await fetchProfile(cpf);
+    const fora = await outsideHours(profile.role);
+    if (fora) {
+      console.warn(`[login] ${profile.nome} sem acesso: fora do horário — ${profile.role}`);
+      return { error: fora, cpf: raw };
+    }
     await createSession(profile);
     console.info(`[login] ok ${profile.nome} — ${profile.role}, vendedor ${profile.codvend}, empresa ${profile.codemp}`);
   } catch (err) {

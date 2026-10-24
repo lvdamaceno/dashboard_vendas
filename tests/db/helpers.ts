@@ -8,7 +8,7 @@ export const hasDb = Boolean(process.env.TEST_DATABASE_URL);
 
 const TABELAS = [
   "fila", "foto", "atendimento", "aviso", "aviso_visto", "feedback", "meta", "meta_pessoa", "telefone",
-  "cliente_dispensado", "feriado", "lembrete", "evento", "push_inscricao", "config", "usuario_master",
+  "cliente_dispensado", "feriado", "lembrete", "evento", "push_inscricao", "config", "usuario_master", "acesso_regra", "acesso_local",
 ];
 
 let client: Client;

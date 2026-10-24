@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { addPlace, deletePlace, geocode, saveAccessRule, setPlaceActive, type Endereco, type Janela } from "@/lib/acesso";
 import { env } from "@/lib/env";
 import { createReminder, deleteReminder, setReminderActive } from "@/lib/lembretes";
 import { addMaster, deleteNotice, getMaster, removeMaster, resetMasterPassword, setFeedbackDone } from "@/lib/painel";
@@ -210,4 +211,96 @@ export async function resetMasterPasswordAction(form: FormData) {
   await resetMasterPassword(parsed.data);
   console.info(`[admin] senha do master ${parsed.data} zerada`);
   refresh();
+}
+
+// --- horário e local de acesso por grupo ---
+
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido");
+
+export async function saveAccessRuleAction(_prev: AdminState, form: FormData): Promise<AdminState> {
+  const session = await requireAdmin();
+  const papel = z.enum(["vendedor", "gerente"]).safeParse(form.get("papel"));
+  if (!papel.success) return { error: "Grupo inválido." };
+  const janelas: (Janela | null)[] = [];
+  for (let dia = 0; dia < 7; dia++) {
+    if (form.get(`dia${dia}`) !== "1") {
+      janelas.push(null);
+      continue;
+    }
+    const inicio = hhmm.safeParse(form.get(`inicio${dia}`));
+    const fim = hhmm.safeParse(form.get(`fim${dia}`));
+    if (!inicio.success || !fim.success) return { error: "Preencha o início e o fim de cada dia marcado." };
+    if (inicio.data >= fim.data) return { error: "Em cada dia, o fim precisa ser depois do início." };
+    janelas.push({ inicio: inicio.data, fim: fim.data });
+  }
+  const horario = form.get("horario") === "1";
+  const local = form.get("local") === "1";
+  if (horario && janelas.every((j) => !j)) return { error: "Marque pelo menos um dia, ou desligue o limite de horário." };
+  try {
+    await saveAccessRule({ papel: papel.data, horario, janelas, local }, session.nome);
+    console.info(`[admin] acesso de ${papel.data}: horário ${horario ? "limitado" : "livre"}, local ${local ? "exigido" : "livre"}`);
+  } catch (err) {
+    console.error("[admin] erro ao salvar regra de acesso:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível salvar. Tente novamente." };
+  }
+  refresh();
+  return { ok: true };
+}
+
+const placeSchema = z.object({
+  nome: z.string().trim().min(1, "Informe o nome do local").max(120),
+  endereco: z.string().trim().max(300),
+  lat: z.coerce.number({ message: "Informe a latitude" }).min(-90).max(90),
+  lng: z.coerce.number({ message: "Informe a longitude" }).min(-180).max(180),
+  raio: z.coerce.number().int().min(30).max(5000),
+});
+
+export async function addPlaceAction(_prev: AdminState, form: FormData): Promise<AdminState> {
+  await requireAdmin();
+  const val = (k: string) => String(form.get(k) ?? "").replace(",", ".").trim();
+  const parsed = placeSchema.safeParse({ nome: form.get("nome") ?? "", endereco: form.get("endereco") ?? "", lat: val("lat") || undefined, lng: val("lng") || undefined, raio: val("raio") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const l = parsed.data;
+  try {
+    await addPlace({ ...l, endereco: l.endereco || null });
+    console.info(`[admin] local de acesso cadastrado: ${l.nome} (raio ${l.raio} m)`);
+  } catch (err) {
+    console.error("[admin] erro ao cadastrar local:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível salvar. Tente novamente." };
+  }
+  refresh();
+  return { ok: true };
+}
+
+export async function togglePlace(form: FormData) {
+  await requireAdmin();
+  const parsed = id.safeParse(form.get("id"));
+  if (!parsed.success) return;
+  await setPlaceActive(parsed.data, form.get("ativo") === "1");
+  refresh();
+}
+
+export async function removePlace(form: FormData) {
+  await requireAdmin();
+  const parsed = id.safeParse(form.get("id"));
+  if (!parsed.success) return;
+  await deletePlace(parsed.data);
+  console.info(`[admin] local de acesso ${parsed.data} removido`);
+  refresh();
+}
+
+export type GeocodeResult = { ok: true; resultados: Endereco[] } | { ok: false; error: string };
+
+/** Procura as coordenadas de um endereço (para o cadastro de local). */
+export async function searchAddress(q: string): Promise<GeocodeResult> {
+  await requireAdmin();
+  const busca = String(q ?? "").trim().slice(0, 300);
+  if (busca.length < 5) return { ok: false, error: "Digite o endereço completo (rua, número, bairro e cidade)." };
+  try {
+    const resultados = await geocode(busca);
+    return resultados.length ? { ok: true, resultados } : { ok: false, error: "Endereço não encontrado. Tente escrever de outro jeito ou use a localização atual." };
+  } catch (err) {
+    console.error("[admin] erro ao procurar endereço:", err instanceof Error ? err.message : err);
+    return { ok: false, error: "A busca de endereço não respondeu. Tente de novo ou informe as coordenadas." };
+  }
 }

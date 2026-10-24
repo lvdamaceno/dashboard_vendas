@@ -334,6 +334,8 @@ continua funcionando; só o sino some e o envio de sugestões avisa o erro.
 | `atendimento` | Atendimentos da fila: início, fim, resultado (vendeu / não vendeu / só olhando) e motivo |
 | `fila` | Fila de atendimento por loja e dia (zera às 7h) |
 | `foto` | Foto do vendedor na fila (uma por vendedor, JPEG 256×256) |
+| `acesso_regra` | Horário de acesso (janelas por dia da semana) e trava de local, por grupo (vendedor e gerente; diretoria e admin não têm bloqueio) |
+| `acesso_local` | Locais onde o painel pode ser aberto (lojas e outros endereços), com raio em metros |
 | `cliente_dispensado` | Clientes tirados de "Clientes para chamar de volta" (ex.: não querem voltar); reaparecem se comprarem depois |
 
 - **Sino** (canto superior esquerdo): bolinha amarela quando há aviso novo. Vendedor e gerente veem os avisos de todas as
