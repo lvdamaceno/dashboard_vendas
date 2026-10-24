@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { sendNotice, type FormState } from "../painel-actions";
-import { addPlaceAction, addReminder, saveAccessRuleAction, saveMaster, searchAddress, type AdminState } from "./actions";
-import type { Endereco, Janela, Papel } from "@/lib/acesso";
+import { addPlaceAction, addReminder, saveAccessRuleAction, saveMaster, updatePlaceAction, type AdminState } from "./actions";
+import type { Janela, Local, Papel } from "@/lib/acesso";
+import { parseCoords } from "@/lib/coords";
 import { Select } from "@/components/select";
 
 const field =
@@ -191,93 +192,68 @@ export function AccessRuleForm({ papel, label, regra }: { papel: Papel; label: s
   );
 }
 
-/** Novo local de acesso: endereço buscado no mapa, localização atual do aparelho ou coordenadas coladas do Google Maps. */
-export function PlaceForm() {
-  const [state, action, pending] = useActionState<AdminState, FormData>(addPlaceAction, {});
+/** Precisão mínima do "Estou no local": pior que isso, o aparelho está chutando (ex.: computador localizado pelo IP). */
+const PRECISAO_LOCAL = 100;
+
+/**
+ * Novo local de acesso, ou correção de um já cadastrado (local).
+ * As coordenadas vêm coladas do Google Maps ou do GPS do aparelho estando no local; o ponto lido aparece na hora para conferir.
+ */
+export function PlaceForm({ local, onDone }: { local?: Local; onDone?: () => void }) {
+  const [state, action, pending] = useActionState<AdminState, FormData>(local ? updatePlaceAction : addPlaceAction, {});
   const form = useResetOnOk(state);
-  const [endereco, setEndereco] = useState("");
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
-  const [resultados, setResultados] = useState<Endereco[]>([]);
+  const [coordenadas, setCoordenadas] = useState(local ? `${local.lat}, ${local.lng}` : "");
   const [aviso, setAviso] = useState<string>();
-  const [buscando, startBusca] = useTransition();
+  const lido = coordenadas.trim() ? parseCoords(coordenadas) : null;
 
   useEffect(() => {
     if (!state.ok) return;
-    setEndereco("");
-    setLat("");
-    setLng("");
-    setResultados([]);
-    setAviso(undefined);
-  }, [state]);
-
-  const usar = (p: { lat: number; lng: number }) => {
-    setLat(p.lat.toFixed(6));
-    setLng(p.lng.toFixed(6));
-    setResultados([]);
-  };
-  const buscar = () =>
-    startBusca(async () => {
+    if (local) onDone?.();
+    else {
+      setCoordenadas("");
       setAviso(undefined);
-      const r = await searchAddress(endereco);
-      if (!r.ok) return setAviso(r.error);
-      if (r.resultados.length === 1) usar(r.resultados[0]);
-      else setResultados(r.resultados);
-    });
+    }
+  }, [state, local, onDone]);
+
   const aqui = () => {
     setAviso("Pegando a localização deste aparelho…");
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        usar({ lat: p.coords.latitude, lng: p.coords.longitude });
-        setAviso(`Localização deste aparelho (margem de ${Math.round(p.coords.accuracy)} m).`);
+        const margem = Math.round(p.coords.accuracy);
+        if (margem > PRECISAO_LOCAL) {
+          return setAviso(
+            `A localização deste aparelho está imprecisa (margem de ${margem} m), então não foi usada. Use um celular com GPS ligado, estando na loja, ou cole as coordenadas do Google Maps.`,
+          );
+        }
+        setCoordenadas(`${p.coords.latitude.toFixed(7)}, ${p.coords.longitude.toFixed(7)}`);
+        setAviso(`Localização deste aparelho (margem de ${margem} m).`);
       },
       () => setAviso("Não foi possível pegar a localização deste aparelho."),
-      { enableHighAccuracy: true, timeout: 20_000 },
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
     );
   };
-  const coords = Number(lat) && Number(lng) ? `${lat},${lng}` : null;
 
   return (
     <form ref={form} action={action} className="space-y-2">
-      <input name="nome" required maxLength={120} placeholder="Nome (ex.: Loja Pedreira, Escritório)" className={field} />
+      {local && <input type="hidden" name="id" value={local.id} />}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input name="nome" required maxLength={120} defaultValue={local?.nome} placeholder="Nome (ex.: Loja Pedreira, Escritório)" aria-label="Nome" className={`${field} sm:w-64`} />
+        <input name="endereco" maxLength={300} defaultValue={local?.endereco ?? ""} placeholder="Endereço (só para referência)" aria-label="Endereço" className={`${field} sm:flex-1`} />
+      </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
-          name="endereco"
-          maxLength={300}
-          value={endereco}
-          onChange={(e) => setEndereco(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              buscar();
-            }
-          }}
-          placeholder="Endereço (rua, número, bairro, cidade)"
+          name="coordenadas"
+          required
+          value={coordenadas}
+          onChange={(e) => setCoordenadas(e.target.value)}
+          placeholder="Coordenadas do Google Maps (ex.: -1.4295874, -48.4851419)"
+          aria-label="Coordenadas"
           className={`${field} sm:flex-1`}
         />
-        <button type="button" onClick={buscar} disabled={buscando} className="h-10 shrink-0 rounded-full border border-line px-4 text-sm font-medium hover:bg-bg-alt">
-          {buscando ? "Buscando…" : "Buscar no mapa"}
-        </button>
         <button type="button" onClick={aqui} className="h-10 shrink-0 rounded-full border border-line px-4 text-sm font-medium hover:bg-bg-alt">
           Estou no local
         </button>
-      </div>
-      {resultados.length > 0 && (
-        <ul className="divide-y divide-line rounded-2xl border border-line text-sm">
-          {resultados.map((r) => (
-            <li key={`${r.lat},${r.lng}`}>
-              <button type="button" onClick={() => usar(r)} className="w-full px-4 py-2 text-left hover:bg-bg-alt">
-                {r.nome}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {aviso && <p className="text-sm text-ink-2">{aviso}</p>}
-      <div className="grid gap-2 sm:grid-cols-3">
-        <input name="lat" required inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="Latitude (ex.: -1.4558)" className={field} />
-        <input name="lng" required inputMode="decimal" value={lng} onChange={(e) => setLng(e.target.value)} placeholder="Longitude (ex.: -48.4902)" className={field} />
-        <Select name="raio" aria-label="Raio aceito" defaultValue="150" className={field}>
+        <Select name="raio" aria-label="Raio aceito" defaultValue={String(local?.raio ?? 150)} className={field} wrapperClassName="sm:w-52">
           {[50, 100, 150, 200, 300, 500, 1000].map((m) => (
             <option key={m} value={m}>
               Até {m} m do ponto
@@ -285,18 +261,44 @@ export function PlaceForm() {
           ))}
         </Select>
       </div>
-      {coords && (
-        <p className="text-sm">
-          <a href={`https://www.google.com/maps?q=${coords}`} target="_blank" rel="noopener noreferrer" className="text-accent underline-offset-4 hover:underline">
-            Conferir o ponto no Google Maps ↗
-          </a>
-        </p>
-      )}
+      {lido &&
+        (lido.ok ? (
+          <p className="text-sm text-ink-2">
+            Ponto lido: latitude <span className="tabular">{lido.lat}</span>, longitude <span className="tabular">{lido.lng}</span> ·{" "}
+            <a href={`https://www.google.com/maps/search/?api=1&query=${lido.lat},${lido.lng}`} target="_blank" rel="noopener noreferrer" className="text-accent underline-offset-4 hover:underline">
+              conferir no Google Maps ↗
+            </a>
+          </p>
+        ) : (
+          <p className="text-sm text-bad">{lido.error}</p>
+        ))}
+      {aviso && <p className="text-sm text-ink-2">{aviso}</p>}
       {state.error && <p className="text-sm text-bad">{state.error}</p>}
-      {state.ok && <p className="text-sm text-good">Local salvo.</p>}
-      <button type="submit" disabled={pending} className={submit}>
-        {pending ? "Salvando…" : "Adicionar local"}
-      </button>
+      {state.ok && !local && <p className="text-sm text-good">Local salvo.</p>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending || (lido !== null && !lido.ok)} className={submit}>
+          {pending ? "Salvando…" : local ? "Salvar correção" : "Adicionar local"}
+        </button>
+        {local && (
+          <button type="button" onClick={onDone} className="h-10 rounded-full border border-line px-4 text-sm font-medium hover:bg-bg-alt">
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
+  );
+}
+
+/** Linha da lista de locais: o botão "Corrigir" abre o formulário com os dados atuais. */
+export function PlaceEditor({ local, children }: { local: Local; children: React.ReactNode }) {
+  const [editando, setEditando] = useState(false);
+  if (editando) return <PlaceForm local={local} onDone={() => setEditando(false)} />;
+  return (
+    <div className="flex flex-wrap items-start gap-3">
+      <div className="min-w-0 flex-1">{children}</div>
+      <button type="button" onClick={() => setEditando(true)} className="h-9 shrink-0 rounded-full border border-line px-4 text-sm font-medium hover:bg-bg-alt">
+        Corrigir
+      </button>
+    </div>
   );
 }

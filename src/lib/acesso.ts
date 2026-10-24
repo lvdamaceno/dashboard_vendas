@@ -178,6 +178,11 @@ export async function addPlace(l: Omit<Local, "id" | "ativo">) {
   invalidateAccessConfig();
 }
 
+export async function updatePlace(id: number, l: Omit<Local, "id" | "ativo">) {
+  await sql(`UPDATE painel.acesso_local SET nome = $2, endereco = $3, lat = $4, lng = $5, raio = $6 WHERE id = $1`, [id, l.nome, l.endereco, l.lat, l.lng, l.raio]);
+  invalidateAccessConfig();
+}
+
 export async function setPlaceActive(id: number, ativo: boolean) {
   await sql(`UPDATE painel.acesso_local SET ativo = $2 WHERE id = $1`, [id, ativo]);
   invalidateAccessConfig();
@@ -214,25 +219,4 @@ export async function validPlaceCookie(token: string | undefined, session: Sessi
   } catch {
     return false;
   }
-}
-
-// --- busca de endereço (para cadastrar os locais) ---
-
-export interface Endereco {
-  nome: string;
-  lat: number;
-  lng: number;
-}
-
-/** Coordenadas de um endereço pelo OpenStreetMap (Nominatim; uso leve, só pelo admin). */
-export async function geocode(q: string): Promise<Endereco[]> {
-  const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q, format: "jsonv2", countrycodes: "br", limit: "5", "accept-language": "pt-BR" })}`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "dashboard-vendas/1.0 (+https://vendedor.casacontente.com.br)" },
-    signal: AbortSignal.timeout(8000),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Nominatim respondeu ${res.status}`);
-  const rows = (await res.json()) as { display_name: string; lat: string; lon: string }[];
-  return rows.map((r) => ({ nome: r.display_name, lat: Number(r.lat), lng: Number(r.lon) }));
 }
