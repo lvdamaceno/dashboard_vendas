@@ -57,10 +57,15 @@ test.describe("horário e local de acesso", () => {
   test("com a trava de local, só abre perto de um local cadastrado", async ({ page, context }) => {
     const form = await asAdmin(page, context);
     await page.getByPlaceholder("Nome (ex.: Loja Pedreira, Escritório)").fill("Loja Teste");
-    await page.getByPlaceholder("Latitude (ex.: -1.4558)").fill(String(LOJA.latitude));
-    await page.getByPlaceholder("Longitude (ex.: -48.4902)").fill(String(LOJA.longitude));
+    await page.getByLabel("Coordenadas").fill(`${LOJA.latitude}, ${LOJA.longitude}`);
+    await expect(page.getByText(`Ponto lido: latitude ${LOJA.latitude}, longitude ${LOJA.longitude}`)).toBeVisible();
     await page.getByRole("button", { name: "Adicionar local" }).click();
     await expect(page.getByText("Local salvo.")).toBeVisible();
+    // Corrige o raio pela lista, sem apagar e criar de novo
+    await page.getByRole("button", { name: "Corrigir" }).click();
+    await page.getByLabel("Raio aceito").last().selectOption("200");
+    await page.getByRole("button", { name: "Salvar correção" }).click();
+    await expect(page.getByText("raio de 200 m")).toBeVisible();
     await form.getByLabel("Só abrir nos locais cadastrados").check();
     await save(form);
 

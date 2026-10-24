@@ -10,7 +10,7 @@ import { listPeopleForAdmin } from "@/lib/people";
 import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
 import { deleteMaster, removeNotice, removePlace, removeReminder, resetMasterPasswordAction, toggleFeedback, togglePlace, toggleReminder } from "./actions";
-import { AccessRuleForm, ConfirmButton, MasterForm, NoticeForm, PlaceForm, ReminderForm } from "./forms";
+import { AccessRuleForm, ConfirmButton, MasterForm, NoticeForm, PlaceEditor, PlaceForm, ReminderForm } from "./forms";
 import { listAccessRules, listPlaces, PAPEIS } from "@/lib/acesso";
 import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
 import { configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type Check } from "@/lib/health";
@@ -226,9 +226,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
           <section className={card}>
             <h2 className="mb-1 text-base">Novo local permitido</h2>
             <p className="mb-3 text-sm text-ink-2">
-              Lojas e outros endereços onde o painel pode ser aberto. Busque o endereço no mapa, toque em <strong>Estou no local</strong> estando
-              lá, ou cole as coordenadas do Google Maps (clique com o botão direito no ponto). Confira sempre o ponto no mapa. O raio de 150 m
-              cobre a loja e a calçada; dentro de prédios o GPS erra mais, então aumente se alguém for barrado estando na loja.
+              Lojas e outros endereços onde o painel pode ser aberto. No Google Maps, ache a loja, clique com o botão direito em cima dela e
+              clique nos números que aparecem no topo do menu: eles são copiados. Cole no campo de coordenadas (também vale o link do Google
+              Maps). Ou, estando na loja com o celular, toque em <strong>Estou no local</strong>. Confira sempre o ponto lido no mapa antes de
+              salvar. O raio de 150 m cobre a loja e a calçada; dentro de prédios o GPS erra mais, então aumente se alguém for barrado estando na
+              loja.
             </p>
             <PlaceForm />
           </section>
@@ -239,38 +241,43 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
             ) : (
               <ul className="divide-y divide-line">
                 {locais.map((l) => (
-                  <li key={l.id} className={`flex flex-wrap items-start gap-3 py-3 ${l.ativo ? "" : "opacity-60"}`}>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{l.nome}</p>
-                      {l.endereco && <p className="text-sm text-ink-2">{l.endereco}</p>}
-                      <p className="mt-1 text-xs text-ink-3">
-                        Raio de {l.raio} m ·{" "}
-                        <a
-                          href={`https://www.google.com/maps?q=${l.lat},${l.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-accent underline-offset-4 hover:underline"
-                        >
-                          ver no mapa ↗
-                        </a>
-                        {!l.ativo && <> · desativado</>}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <form action={togglePlace}>
-                        <input type="hidden" name="id" value={l.id} />
-                        <input type="hidden" name="ativo" value={l.ativo ? "0" : "1"} />
-                        <button type="submit" className={small}>
-                          {l.ativo ? "Desativar" : "Ativar"}
-                        </button>
-                      </form>
-                      <form action={removePlace}>
-                        <input type="hidden" name="id" value={l.id} />
-                        <ConfirmButton message={`Remover o local "${l.nome}"?`} className={small}>
-                          Remover
-                        </ConfirmButton>
-                      </form>
-                    </div>
+                  <li key={l.id} className="py-3">
+                    <PlaceEditor local={l}>
+                      <div className={l.ativo ? "" : "opacity-60"}>
+                        <p className="font-medium">{l.nome}</p>
+                        {l.endereco && <p className="text-sm text-ink-2">{l.endereco}</p>}
+                        <p className="mt-1 text-xs text-ink-3">
+                          <span className="tabular">
+                            {l.lat}, {l.lng}
+                          </span>{" "}
+                          · raio de {l.raio} m ·{" "}
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-accent underline-offset-4 hover:underline"
+                          >
+                            ver no mapa ↗
+                          </a>
+                          {!l.ativo && <> · desativado</>}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <form action={togglePlace}>
+                          <input type="hidden" name="id" value={l.id} />
+                          <input type="hidden" name="ativo" value={l.ativo ? "0" : "1"} />
+                          <button type="submit" className={small}>
+                            {l.ativo ? "Desativar" : "Ativar"}
+                          </button>
+                        </form>
+                        <form action={removePlace}>
+                          <input type="hidden" name="id" value={l.id} />
+                          <ConfirmButton message={`Remover o local "${l.nome}"?`} className={small}>
+                            Remover
+                          </ConfirmButton>
+                        </form>
+                      </div>
+                    </PlaceEditor>
                   </li>
                 ))}
               </ul>

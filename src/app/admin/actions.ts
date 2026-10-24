@@ -4,7 +4,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { addPlace, deletePlace, geocode, saveAccessRule, setPlaceActive, type Endereco, type Janela } from "@/lib/acesso";
+import { addPlace, deletePlace, saveAccessRule, setPlaceActive, updatePlace, type Janela } from "@/lib/acesso";
+import { parseCoords } from "@/lib/coords";
 import { env } from "@/lib/env";
 import { createReminder, deleteReminder, setReminderActive } from "@/lib/lembretes";
 import { addMaster, deleteNotice, getMaster, removeMaster, resetMasterPassword, setFeedbackDone } from "@/lib/painel";
@@ -250,22 +251,44 @@ export async function saveAccessRuleAction(_prev: AdminState, form: FormData): P
 const placeSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do local").max(120),
   endereco: z.string().trim().max(300),
-  lat: z.coerce.number({ message: "Informe a latitude" }).min(-90).max(90),
-  lng: z.coerce.number({ message: "Informe a longitude" }).min(-180).max(180),
   raio: z.coerce.number().int().min(30).max(5000),
 });
 
+/** Nome, endereço, raio e coordenadas (coladas do Google Maps, conferidas em src/lib/coords.ts). */
+function readPlace(form: FormData) {
+  const parsed = placeSchema.safeParse({ nome: form.get("nome") ?? "", endereco: form.get("endereco") ?? "", raio: form.get("raio") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  const c = parseCoords(String(form.get("coordenadas") ?? "").slice(0, 2000));
+  if (!c.ok) return { error: c.error };
+  return { local: { ...parsed.data, endereco: parsed.data.endereco || null, lat: c.lat, lng: c.lng } };
+}
+
 export async function addPlaceAction(_prev: AdminState, form: FormData): Promise<AdminState> {
   await requireAdmin();
-  const val = (k: string) => String(form.get(k) ?? "").replace(",", ".").trim();
-  const parsed = placeSchema.safeParse({ nome: form.get("nome") ?? "", endereco: form.get("endereco") ?? "", lat: val("lat") || undefined, lng: val("lng") || undefined, raio: val("raio") });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
-  const l = parsed.data;
+  const r = readPlace(form);
+  if (!r.local) return { error: r.error };
   try {
-    await addPlace({ ...l, endereco: l.endereco || null });
-    console.info(`[admin] local de acesso cadastrado: ${l.nome} (raio ${l.raio} m)`);
+    await addPlace(r.local);
+    console.info(`[admin] local de acesso cadastrado: ${r.local.nome} (${r.local.lat}, ${r.local.lng}, raio ${r.local.raio} m)`);
   } catch (err) {
     console.error("[admin] erro ao cadastrar local:", err instanceof Error ? err.message : err);
+    return { error: "Não foi possível salvar. Tente novamente." };
+  }
+  refresh();
+  return { ok: true };
+}
+
+export async function updatePlaceAction(_prev: AdminState, form: FormData): Promise<AdminState> {
+  await requireAdmin();
+  const placeId = id.safeParse(form.get("id"));
+  if (!placeId.success) return { error: "Local inválido." };
+  const r = readPlace(form);
+  if (!r.local) return { error: r.error };
+  try {
+    await updatePlace(placeId.data, r.local);
+    console.info(`[admin] local de acesso ${placeId.data} corrigido: ${r.local.nome} (${r.local.lat}, ${r.local.lng}, raio ${r.local.raio} m)`);
+  } catch (err) {
+    console.error("[admin] erro ao corrigir local:", err instanceof Error ? err.message : err);
     return { error: "Não foi possível salvar. Tente novamente." };
   }
   refresh();
@@ -287,20 +310,4 @@ export async function removePlace(form: FormData) {
   await deletePlace(parsed.data);
   console.info(`[admin] local de acesso ${parsed.data} removido`);
   refresh();
-}
-
-export type GeocodeResult = { ok: true; resultados: Endereco[] } | { ok: false; error: string };
-
-/** Procura as coordenadas de um endereço (para o cadastro de local). */
-export async function searchAddress(q: string): Promise<GeocodeResult> {
-  await requireAdmin();
-  const busca = String(q ?? "").trim().slice(0, 300);
-  if (busca.length < 5) return { ok: false, error: "Digite o endereço completo (rua, número, bairro e cidade)." };
-  try {
-    const resultados = await geocode(busca);
-    return resultados.length ? { ok: true, resultados } : { ok: false, error: "Endereço não encontrado. Tente escrever de outro jeito ou use a localização atual." };
-  } catch (err) {
-    console.error("[admin] erro ao procurar endereço:", err instanceof Error ? err.message : err);
-    return { ok: false, error: "A busca de endereço não respondeu. Tente de novo ou informe as coordenadas." };
-  }
 }
