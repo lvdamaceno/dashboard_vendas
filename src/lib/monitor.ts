@@ -33,8 +33,8 @@ const text = (args: unknown[]) =>
     .join(" ")
     .slice(0, 4000);
 
-// Vão para o banco: erros, alertas e acessos (logins e ações do admin). O resto fica só na memória.
-const persiste = (nivel: Nivel, msg: string) => nivel !== "info" || /^\[(login|admin)\]/.test(msg);
+// Vão para o banco: erros, alertas e acessos (logins, ações do admin e confirmações de local). O resto fica só na memória.
+const persiste = (nivel: Nivel, msg: string) => nivel !== "info" || /^\[(login|admin|acesso)\]/.test(msg);
 
 export function record(nivel: Nivel, args: unknown[]) {
   const msg = text(args);

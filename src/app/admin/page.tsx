@@ -13,7 +13,7 @@ import { deleteMaster, removeNotice, removePlace, removeReminder, resetMasterPas
 import { AccessRuleForm, ConfirmButton, MasterForm, NoticeForm, PlaceEditor, PlaceForm, ReminderForm } from "./forms";
 import { listAccessRules, listPlaces, PAPEIS } from "@/lib/acesso";
 import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
-import { configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type Check } from "@/lib/health";
+import { accessStatus, configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type AccessStatus, type Check } from "@/lib/health";
 import type { Nivel } from "@/lib/monitor";
 import { HolidaysManager } from "../feriados/holidays-manager";
 import { todayIso } from "@/lib/period";
@@ -46,6 +46,28 @@ const ROLES: Record<string, string> = { vendedor: "Vendedor", gerente: "Gerente"
 
 const card = "rounded-3xl border border-line bg-surface p-5";
 const small = "h-9 shrink-0 rounded-full border border-line px-4 text-sm font-medium hover:bg-bg-alt";
+
+/** Resumo da trava de acesso para a tela Saúde: bad = não está protegendo como configurado. */
+function travaResumo(a: AccessStatus): { tom: "good" | "warn" | "bad" | "off"; texto: string } {
+  if (!a.leitura.ok) return { tom: "bad", texto: `Não foi possível ler as regras do banco: o acesso fica liberado para todos até voltar (${a.leitura.detalhe}).` };
+  const semLocais = a.grupos.filter((g) => g.local === "sem-locais");
+  if (semLocais.length) {
+    return { tom: "bad", texto: `Trava de local ligada para ${semLocais.map((g) => g.label.toLowerCase()).join(" e ")}, mas sem nenhum local ativo: não está bloqueando ninguém.` };
+  }
+  if (a.errosLeitura24h) return { tom: "warn", texto: `Funcionando agora, mas houve ${a.errosLeitura24h} falha(s) ao ler as regras nas últimas 24 h (nesses momentos o acesso ficou liberado).` };
+  const local = a.grupos.some((g) => g.local === "ativa");
+  const horario = a.grupos.some((g) => g.horario);
+  if (!local && !horario) return { tom: "off", texto: "Nenhuma trava ligada: vendedores e gerentes entram em qualquer horário e lugar." };
+  if (local && !a.confirmacoes24h) {
+    return { tom: "warn", texto: "Trava de local valendo, mas ninguém confirmou a localização nas últimas 24 h. Normal se ninguém entrou; se alguém entrou, confira os registros abaixo." };
+  }
+  return {
+    tom: "good",
+    texto: local
+      ? `Funcionando: ${a.confirmacoes24h} confirmações de local de ${a.pessoasConfirmaram24h} pessoa(s) nas últimas 24 h${a.recusasLocal24h ? ` e ${a.recusasLocal24h} acesso(s) barrado(s) fora dos locais` : ""}.`
+      : "Funcionando: só o limite de horário está ligado.",
+  };
+}
 
 export default async function AdminPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getSession();
@@ -292,14 +314,21 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
       const nivel: Nivel | "todos" = nivelParam === "error" || nivelParam === "warn" || nivelParam === "info" ? nivelParam : "todos";
       const fonte = one(sp.fonte) === "memoria" ? "memoria" : "banco";
       const q = (one(sp.q) ?? "").slice(0, 100);
-      const [conexoes, uso, logs] = await Promise.all([
+      const [conexoes, uso, logs, acesso] = await Promise.all([
         connectionChecks(),
         usageStats().catch(() => null),
         searchLogs(fonte, q, nivel).catch(() => []),
+        accessStatus().catch(() => null),
       ]);
       const servidor = serverInfo();
       const config = configChecks();
-      const problemas = [!conexoes.postgres.ok && "banco do painel", !conexoes.sankhya.ok && "Sankhya", ...config.filter((c) => !c.ok).map((c) => c.nome)].filter(Boolean);
+      const trava = acesso && travaResumo(acesso);
+      const problemas = [
+        !conexoes.postgres.ok && "banco do painel",
+        !conexoes.sankhya.ok && "Sankhya",
+        ...config.filter((c) => !c.ok).map((c) => c.nome),
+        trava?.tom === "bad" && "trava de acesso",
+      ].filter(Boolean);
       const atencao = !problemas.length && ((uso?.erros_24h ?? 0) > 0 || conexoes.sankhya.ms > 5000);
       const fmtHora = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Sao_Paulo" });
       const duracao = (ms: number) => {
@@ -384,6 +413,85 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
               </ul>
             </section>
           </div>
+
+          {acesso && trava && (
+            <section className={card}>
+              <div className="mb-3 flex items-start gap-3">
+                {trava.tom !== "off" && (
+                  <span className="mt-1.5">
+                    <Dot ok={trava.tom !== "bad"} warn={trava.tom === "warn"} />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base">Trava de horário e local</h2>
+                  <p className={`text-sm ${trava.tom === "bad" ? "text-bad" : "text-ink-2"}`}>{trava.texto}</p>
+                </div>
+                <Link href="/admin?aba=acesso" className={`${small} leading-9`}>
+                  Configurar
+                </Link>
+              </div>
+              <ul className="divide-y divide-line rounded-2xl border border-line text-sm">
+                {acesso.grupos.map((g) => (
+                  <li key={g.papel} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
+                    <span className="w-24 font-medium">{g.label}</span>
+                    <span className="flex items-center gap-1.5">
+                      {g.horario ? (
+                        <>
+                          <Dot ok warn={!g.horario.abertoAgora} />
+                          Horário limitado ·{" "}
+                          {g.horario.abertoAgora
+                            ? `aberto agora (até ${g.horario.hoje?.fim})`
+                            : g.horario.hoje
+                              ? `fechado agora (hoje ${g.horario.hoje.inicio}–${g.horario.hoje.fim})`
+                              : "fechado hoje"}
+                        </>
+                      ) : (
+                        <span className="text-ink-3">Horário livre</span>
+                      )}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      {g.local === "ativa" ? (
+                        <>
+                          <Dot ok />
+                          Trava de local valendo
+                        </>
+                      ) : g.local === "sem-locais" ? (
+                        <>
+                          <Dot ok={false} />
+                          <span className="text-bad">Trava de local ligada, mas sem local ativo (não bloqueia)</span>
+                        </>
+                      ) : (
+                        <span className="text-ink-3">Sem trava de local</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+                <li className="px-3 py-2 text-ink-3">Diretoria (master) e admin nunca são bloqueados.</li>
+              </ul>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Stat label="Locais ativos" value={acesso.locaisAtivos} tone={acesso.locaisAtivos ? undefined : "bad"} />
+                <Stat label="Confirmações de local em 24h" value={`${acesso.confirmacoes24h} · ${acesso.pessoasConfirmaram24h} pessoas`} tone={acesso.confirmacoes24h ? "good" : undefined} />
+                <Stat label="Barrados fora dos locais em 24h" value={acesso.recusasLocal24h} />
+                <Stat label="Barrados fora do horário em 24h" value={acesso.foraHorario24h} />
+              </div>
+              {acesso.ultimaConfirmacao && (
+                <p className="mt-2 text-xs text-ink-3">Última confirmação de local: {fmtHora.format(new Date(acesso.ultimaConfirmacao))}</p>
+              )}
+              <h3 className="mt-4 mb-1 text-sm font-medium">Últimos registros</h3>
+              {acesso.eventos.length === 0 ? (
+                <p className="py-3 text-center text-sm text-ink-3">Nenhum registro de confirmação ou bloqueio ainda.</p>
+              ) : (
+                <ul className="divide-y divide-line rounded-2xl border border-line font-mono text-xs">
+                  {acesso.eventos.map((l, i) => (
+                    <li key={`${l.at}-${i}`} className="flex gap-3 px-3 py-2">
+                      <span className="tabular shrink-0 text-ink-3">{fmtHora.format(new Date(l.at))}</span>
+                      <span className={`min-w-0 break-words ${l.nivel === "error" ? "text-bad" : l.nivel === "warn" ? "text-[#a86a00]" : ""}`}>{l.msg}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <section className={card}>
             <h2 className="mb-1 text-base">Uso</h2>

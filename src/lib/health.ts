@@ -1,4 +1,5 @@
 import "server-only";
+import { listAccessRules, listPlaces, nowInBrasilia, PAPEIS, withinSchedule, type Janela, type Papel } from "./acesso";
 import { sql } from "./db";
 import { monitor, type LogEntry, type Nivel } from "./monitor";
 import { query } from "./sankhya/client";
@@ -130,4 +131,76 @@ export async function searchLogs(fonte: "banco" | "memoria", q: string, nivel: N
     [nivel, termo, limite],
   );
   return rows;
+}
+
+export interface AccessGroupStatus {
+  papel: Papel;
+  label: string;
+  /** null = horário livre */
+  horario: { abertoAgora: boolean; hoje: Janela | null } | null;
+  /** off: desligada; ativa: valendo; sem-locais: ligada, mas sem local ativo (não bloqueia ninguém) */
+  local: "off" | "ativa" | "sem-locais";
+}
+
+export interface AccessStatus {
+  /** Regras lidas do banco agora (sem o cache do proxy); erro = o proxy libera o acesso */
+  leitura: Check;
+  grupos: AccessGroupStatus[];
+  locaisAtivos: number;
+  confirmacoes24h: number;
+  pessoasConfirmaram24h: number;
+  recusasLocal24h: number;
+  foraHorario24h: number;
+  errosLeitura24h: number;
+  ultimaConfirmacao: number | null;
+  eventos: LogEntry[];
+}
+
+/** Situação da trava de horário e local (aba "Horário e local"), pelas regras e pelos registros de 24 h. */
+export async function accessStatus(): Promise<AccessStatus> {
+  let regras: Awaited<ReturnType<typeof listAccessRules>> = [];
+  let locais: Awaited<ReturnType<typeof listPlaces>> = [];
+  const leitura = await timed(async () => {
+    [regras, locais] = await Promise.all([listAccessRules(), listPlaces()]);
+    return "Regras lidas do banco do painel";
+  });
+  const ativos = locais.filter((l) => l.ativo).length;
+  const agora = nowInBrasilia();
+  const grupos = PAPEIS.map(({ value, label }): AccessGroupStatus => {
+    const r = regras.find((x) => x.papel === value);
+    return {
+      papel: value,
+      label,
+      horario: r?.horario ? { abertoAgora: withinSchedule(r.janelas, agora), hoje: r.janelas[agora.dia] ?? null } : null,
+      local: !r?.local ? "off" : ativos ? "ativa" : "sem-locais",
+    };
+  });
+
+  const [n] = await sql<{ confirmacoes: number; pessoas: number; recusas: number; fora_horario: number; erros: number; ultima: number | null }>(
+    `SELECT
+       count(*) FILTER (WHERE mensagem LIKE '[acesso] % confirmou o local:%')::int AS confirmacoes,
+       count(DISTINCT split_part(substr(mensagem, 10), ' (', 1)) FILTER (WHERE mensagem LIKE '[acesso] % confirmou o local:%')::int AS pessoas,
+       count(*) FILTER (WHERE mensagem LIKE '[acesso] % fora dos locais permitidos:%')::int AS recusas,
+       count(*) FILTER (WHERE mensagem LIKE '[login] % fora do horário%')::int AS fora_horario,
+       count(*) FILTER (WHERE mensagem LIKE '[acesso] não foi possível ler as regras%')::int AS erros,
+       (max(extract(epoch FROM criado_em) * 1000) FILTER (WHERE mensagem LIKE '[acesso] % confirmou o local:%'))::float8 AS ultima
+     FROM painel.evento WHERE criado_em >= now() - interval '24 hours'`,
+  );
+  const eventos = await sql<LogEntry>(
+    `SELECT (extract(epoch FROM criado_em) * 1000)::float8 AS at, nivel, mensagem AS msg FROM painel.evento
+      WHERE mensagem LIKE '[acesso] %' OR mensagem LIKE '[login] % fora do horário%'
+      ORDER BY criado_em DESC LIMIT 10`,
+  );
+  return {
+    leitura,
+    grupos,
+    locaisAtivos: ativos,
+    confirmacoes24h: n?.confirmacoes ?? 0,
+    pessoasConfirmaram24h: n?.pessoas ?? 0,
+    recusasLocal24h: n?.recusas ?? 0,
+    foraHorario24h: n?.fora_horario ?? 0,
+    errosLeitura24h: n?.erros ?? 0,
+    ultimaConfirmacao: n?.ultima ?? null,
+    eventos,
+  };
 }
