@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fredoka, Manrope } from "next/font/google";
+import { connection } from "next/server";
 import { RegisterSW } from "@/components/register-sw";
 import "./globals.css";
 
@@ -16,7 +17,9 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Tudo renderizado na hora: a CSP do proxy usa um nonce por requisição, que página estática não teria
+  await connection();
   return (
     <html lang="pt-BR" className={`${textFont.variable} ${headingFont.variable}`}>
       <body>

@@ -63,3 +63,11 @@ test.describe("permissões", () => {
     await expect(page.getByRole("heading", { name: "Administração" })).toBeVisible();
   });
 });
+
+test("vendedor que saiu do Sankhya perde o acesso no próximo clique", async ({ page, context }) => {
+  // 999 não está entre os vendedores ativos do Sankhya simulado
+  await loginAs(context, { ...ANA, codvend: 999 });
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login\?fora=acesso/);
+  await expect(page.getByText("Seu acesso ao painel foi encerrado.")).toBeVisible();
+});

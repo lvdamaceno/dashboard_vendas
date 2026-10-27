@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// Páginas que passam pelo proxy recebem de lá uma CSP com nonce (src/proxy.ts); esta vale para as que ficam de fora
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
@@ -20,9 +21,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/:path(ajuda|ajuda/.*|offline\\.html)",
+        headers: [{ key: "Content-Security-Policy", value: csp }],
+      },
+      {
         source: "/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: csp },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "same-origin" },
