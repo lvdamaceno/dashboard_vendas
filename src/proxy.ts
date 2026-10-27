@@ -5,6 +5,12 @@ import { ADMIN_HINT_COOKIE, CLEAR_SESSION_COOKIE, decryptSession, SESSION_COOKIE
 // Barreira inicial: sem sessão válida, nada além do login é acessível.
 // As páginas revalidam a sessão por conta própria (defesa em profundidade).
 export async function proxy(request: NextRequest) {
+  // Server Action com ID fora do formato do Next (42 hex) só vem de bots de varredura: recusa sem tocar em sessão nem banco
+  const action = request.headers.get("next-action");
+  if (action !== null && !/^[0-9a-f]{42}$/i.test(action)) {
+    return new NextResponse(null, { status: 400 });
+  }
+
   const session = await decryptSession(request.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = request.nextUrl;
 
