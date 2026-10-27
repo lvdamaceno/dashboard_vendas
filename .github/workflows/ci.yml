@@ -29,6 +29,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Falhas de segurança nas dependências do app
+        run: npm audit --omit=dev --audit-level=high
       - name: Tipos
         run: npm run typecheck
       - name: Testes de regra e de banco (Vitest)

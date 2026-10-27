@@ -1,0 +1,15 @@
+# PRs automáticos de atualização; o CI testa cada um antes do merge
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Correções e versões menores num PR só por semana; versões maiores vêm separadas
+    groups:
+      menores:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
