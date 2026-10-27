@@ -17,6 +17,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             O horário de acesso ao painel terminou. Você poderá entrar de novo no próximo horário liberado.
           </p>
         )}
+        {fora === "acesso" && (
+          <p className="mb-4 rounded-2xl border border-line bg-surface px-3 py-2 text-center text-sm text-ink-2">
+            Seu acesso ao painel foi encerrado. Se for um engano, fale com a gerência da loja.
+          </p>
+        )}
         {expirada && (
           <p className="mb-4 rounded-2xl border border-line bg-surface px-3 py-2 text-center text-sm text-ink-2">
             Sua sessão expirou. Entre novamente.
