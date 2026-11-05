@@ -25,6 +25,11 @@ http
       const sql = JSON.parse(body || "{}")?.requestBody?.sql ?? "";
       const only = /CAB\.CODVEND = (\d+)/.exec(sql)?.[1];
 
+      // Revalidação da sessão (src/lib/session-check.ts): todos do exemplo seguem ativos
+      if (/SELECT 1 AS OK/.test(sql)) {
+        const codvend = Number(/VEN\.CODVEND = (\d+)/.exec(sql)?.[1]);
+        return reply(res, ["OK"], pessoas.some(([c]) => c === codvend) ? [[1]] : []);
+      }
       if (/FROM TSIEMP/.test(sql)) return reply(res, ["CODEMP", "NOMEFANTASIA"], [[LOJA, "CASA CONTENTE - MATRIZ"], [4, "CASA CONTENTE - PEDREIRA"]]);
       if (/SELECT VEN\.CODEMP FROM TGFVEN VEN WHERE VEN\.ATIVO = 'S' AND VEN\.CODVEND/.test(sql)) return reply(res, ["CODEMP"], [[LOJA]]);
       if (/SELECT VEN\.CODVEND, VEN\.APELIDO, VEN\.TIPVEND FROM TGFVEN/.test(sql))

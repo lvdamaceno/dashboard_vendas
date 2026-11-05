@@ -13,6 +13,7 @@ import { clearFailures, clientIp, isBlocked, registerFailure } from "@/lib/rate-
 import { personView } from "@/lib/sales";
 import { cookies } from "next/headers";
 import { ADMIN_HINT, createSession, getSession, type Session, type ViewAs } from "@/lib/session";
+import { forgetActive } from "@/lib/session-check";
 
 /** usuario: devolvido no erro de login para o campo não ficar vazio (o React limpa o formulário depois da ação) */
 export type AdminState = { error?: string; ok?: boolean; usuario?: string };
@@ -103,6 +104,8 @@ export async function deleteMaster(form: FormData) {
   const parsed = id.safeParse(form.get("id"));
   if (!parsed.success) return;
   await removeMaster(parsed.data);
+  // Sai do painel no próximo clique, sem esperar a revalidação periódica
+  forgetActive(`m:${parsed.data}`);
   console.info(`[admin] master ${parsed.data} removido`);
   refresh();
 }
