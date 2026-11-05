@@ -55,10 +55,10 @@ async function authenticate() {
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Token": SANKHYA_X_TOKEN },
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Token": SANKHYA_X_TOKEN! },
       body: new URLSearchParams({
-        client_id: SANKHYA_CLIENT_ID,
-        client_secret: SANKHYA_CLIENT_SECRET,
+        client_id: SANKHYA_CLIENT_ID!,
+        client_secret: SANKHYA_CLIENT_SECRET!,
         grant_type: "client_credentials",
       }),
       cache: "no-store",
@@ -139,7 +139,36 @@ async function callService(serviceName: string, requestBody: unknown, accessToke
     logFailure(serviceName, started, `resposta não é JSON: ${text.slice(0, 200)}`);
     throw new SankhyaError("Resposta inválida do Sankhya.", "SERVICE");
   }
+  return interpretar(serviceName, started, data);
+}
 
+// --- conexão central (sankhya-central): cuida do token, da fila e dos limites ---
+async function callCentral(serviceName: string, requestBody: unknown) {
+  const { SANKHYA_PROXY_URL, SANKHYA_PROXY_CHAVE } = env();
+  const url = new URL("/servico", SANKHYA_PROXY_URL);
+  const started = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-proxy-chave": SANKHYA_PROXY_CHAVE! },
+      body: JSON.stringify({ nome: serviceName, corpo: requestBody }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch (err) {
+    logFailure(serviceName, started, `sem conexão com a central — ${String(err)}`);
+    throw new SankhyaError("Não foi possível conectar ao Sankhya.", "NETWORK");
+  }
+  const body = (await res.json().catch(() => ({}))) as { d?: ServiceResponse; erro?: string };
+  if (!res.ok || !body.d) {
+    logFailure(serviceName, started, `central HTTP ${res.status} ${body.erro ?? ""}`.trim());
+    throw new SankhyaError(body.erro || `Conexão central respondeu HTTP ${res.status}.`, "SERVICE");
+  }
+  return interpretar(serviceName, started, body.d);
+}
+
+function interpretar(serviceName: string, started: number, data: ServiceResponse) {
   if (data.status === "1") return data.responseBody;
   const detail = `status ${data.status} ${data.tsError?.tsErrorCode ?? ""} "${data.statusMessage ?? ""}"`;
   logFailure(serviceName, started, detail);
@@ -150,8 +179,10 @@ async function callService(serviceName: string, requestBody: unknown, accessToke
   throw new SankhyaError(data.statusMessage || "Erro no serviço do Sankhya.", "REJECTED");
 }
 
-async function executeQuery(sql: string, accessToken: string): Promise<Row[]> {
-  const body = await callService("DbExplorerSP.executeQuery", { sql }, accessToken);
+async function executeQuery(sql: string, accessToken?: string): Promise<Row[]> {
+  const body = accessToken
+    ? await callService("DbExplorerSP.executeQuery", { sql }, accessToken)
+    : await callCentral("DbExplorerSP.executeQuery", { sql });
   const fields: { name: string }[] = body?.fieldsMetadata ?? [];
   const rows: unknown[][] = body?.rows ?? [];
   return rows.map((row) => Object.fromEntries(fields.map((f, i) => [f.name.toUpperCase(), row[i]])));
@@ -205,6 +236,7 @@ async function runWithRetry(sql: string): Promise<Row[]> {
 }
 
 async function runOnce(sql: string): Promise<Row[]> {
+  if (env().SANKHYA_PROXY_URL) return executeQuery(sql);
   try {
     return await executeQuery(sql, await getToken());
   } catch (err) {
