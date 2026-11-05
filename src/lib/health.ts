@@ -45,8 +45,12 @@ export function configChecks() {
   const has = (k: string) => Boolean(process.env[k]?.trim());
   return [
     { nome: "Banco do painel (DATABASE_URL)", ok: has("DATABASE_URL") },
-    { nome: "Sankhya: aplicação OAuth (SANKHYA_CLIENT_ID/SECRET)", ok: has("SANKHYA_CLIENT_ID") && has("SANKHYA_CLIENT_SECRET") },
-    { nome: "Sankhya: token do usuário de integração (SANKHYA_X_TOKEN)", ok: has("SANKHYA_X_TOKEN") },
+    ...(has("SANKHYA_PROXY_URL")
+      ? [{ nome: "Sankhya: conexão central (SANKHYA_PROXY_URL/CHAVE)", ok: has("SANKHYA_PROXY_CHAVE") }]
+      : [
+          { nome: "Sankhya: aplicação OAuth (SANKHYA_CLIENT_ID/SECRET)", ok: has("SANKHYA_CLIENT_ID") && has("SANKHYA_CLIENT_SECRET") },
+          { nome: "Sankhya: token do usuário de integração (SANKHYA_X_TOKEN)", ok: has("SANKHYA_X_TOKEN") },
+        ]),
     { nome: "Segredo das sessões (SESSION_SECRET)", ok: (process.env.SESSION_SECRET ?? "").length >= 32 },
     { nome: "Login de admin (ADMIN_USER/ADMIN_PASSWORD, 10+ caracteres)", ok: has("ADMIN_USER") && (process.env.ADMIN_PASSWORD ?? "").length >= 10 },
   ];
