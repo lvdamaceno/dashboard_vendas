@@ -310,6 +310,16 @@ Botão **Fila** ao lado dos filtros do painel. Uma fila por loja por dia, em `pa
   confere que é JPEG (pelo conteúdo) e aceita até 300 KB. Fica em `painel.foto`, **uma por vendedor**: a nova substitui
   a anterior. Servida em `/api/foto/<codvend>` só para quem está logado.
 
+## Black Friday (consulta de descontos)
+
+Campo no início do painel: quem está logado digita o código ou a descrição e vê o **Desconto à vista** do produto
+(as palavras valem em qualquer ordem, sem diferença de acento; até 20 resultados).
+
+- **Dados:** `src/data/black-friday.json`, copiado da planilha da promoção (abas de 20% a 50%, incluindo as linhas escondidas
+  pelos filtros). Como é uma cópia, mudanças na planilha só valem depois de gerar o arquivo de novo e publicar.
+- **Ligar e desligar:** aba **Black Friday** do admin, guardado em `painel.config` (chave `black_friday`; sem registro, fica ligada).
+  Desligada, o campo some do painel e `/api/black-friday` responde 403. Se o banco não responder, a consulta também fica fora.
+
 ## Avisos, sugestões e admin
 
 Ficam no Postgres `loja-casacontente-db` (o mesmo da nova loja, para não criar mais um banco), no schema
@@ -377,5 +387,7 @@ src/app/metas/, feriados/    metas mensais e ajustes de feriado (master e admin)
 src/lib/goal-progress.ts     meta do mês, meta de hoje, saldo e projeção
 src/lib/workdays.ts          dias úteis e feriados de Belém
 src/lib/fila.ts              fila e fotos no Postgres
+src/lib/black-friday*.ts     consulta de descontos da Black Friday (busca e chave do admin)
+src/data/black-friday.json   produtos e descontos da Black Friday
 db/schema.sql                tabelas do schema painel
 ```

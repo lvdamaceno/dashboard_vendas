@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { BlackFridaySearch } from "@/components/black-friday-search";
 import { Filters } from "@/components/filters";
 import { GoalSummary, GoalTable } from "@/components/goals";
 import { ServiceStatsSection } from "@/components/service-stats";
 import { serviceStats, type ServiceStats } from "@/lib/atendimentos";
+import { blackFridayAtiva } from "@/lib/black-friday";
 import { getGoalProgress, type GoalProgress } from "@/lib/goal-progress";
 import { KpiCard } from "@/components/kpi-card";
 import { LostClients } from "@/components/lost-clients";
@@ -86,13 +88,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     });
 
   // Avisos, lojas e vendas ao mesmo tempo (nada espera o outro)
-  const [notices, stores, people, main] = await Promise.all([
+  const [notices, stores, people, bfAtiva, main] = await Promise.all([
     listNotices(session).catch((err): Notice[] | null => {
       console.error("[avisos] erro ao carregar:", err instanceof Error ? err.message : err);
       return null;
     }),
     storesP,
     session.role === "admin" && !session.como ? listPeopleForAdmin() : ([] as Person[]),
+    blackFridayAtiva().catch((err) => {
+      console.error("[black-friday] erro ao ler a configuração:", err instanceof Error ? err.message : err);
+      return false;
+    }),
     Promise.all([getDashboardData(view, period, vendedor), getTeam(view, period, vendedor)]).then(
       ([data, team]) => ({ data, team }),
       (err: unknown) => ({ err }),
@@ -106,6 +112,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     console.error("[dashboard]", err);
     return (
       <Shell {...shell}>
+        {/* A lista não depende do Sankhya: continua consultável com as vendas fora do ar */}
+        {bfAtiva && <BlackFridaySearch />}
         <div className="rounded-3xl border border-line bg-surface p-6 text-center">
           <p className="font-medium">Não foi possível carregar as vendas</p>
           <p className="mt-1 text-sm text-ink-2">O Sankhya não respondeu como esperado. Tente novamente em instantes.</p>
@@ -151,6 +159,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       )}
 
       {session.role !== "admin" && <PushToggle banner />}
+
+      {bfAtiva && <BlackFridaySearch />}
 
       <Filters
         key={`${period.preset}-${period.from}-${period.to}-${loja ?? ""}-${vendedor ?? ""}`}

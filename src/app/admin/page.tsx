@@ -9,9 +9,12 @@ import { countPendingFeedback, listFeedback, listMasters, listNotices, type Feed
 import { listPeopleForAdmin } from "@/lib/people";
 import { getStores } from "@/lib/sales";
 import { getSession } from "@/lib/session";
-import { deleteMaster, removeNotice, removePlace, removeReminder, resetMasterPasswordAction, toggleFeedback, togglePlace, toggleReminder } from "./actions";
+import { deleteMaster, removeNotice, removePlace, removeReminder, resetMasterPasswordAction, toggleBlackFriday, toggleFeedback, togglePlace, toggleReminder } from "./actions";
 import { AccessRuleForm, ConfirmButton, MasterForm, NoticeForm, PlaceEditor, PlaceForm, ReminderForm } from "./forms";
 import { listAccessRules, listPlaces, PAPEIS } from "@/lib/acesso";
+import { blackFridayAtiva } from "@/lib/black-friday";
+import { TOTAL_PRODUTOS_BF } from "@/lib/black-friday-produtos";
+import { number } from "@/lib/format";
 import { listReminders, nextOccurrence, type Reminder } from "@/lib/lembretes";
 import { accessStatus, configChecks, connectionChecks, searchLogs, serverInfo, usageStats, type AccessStatus, type Check } from "@/lib/health";
 import type { Nivel } from "@/lib/monitor";
@@ -31,6 +34,7 @@ const TABS = [
   { value: "paineis", label: "Ver painéis" },
   { value: "telefones", label: "Telefones" },
   { value: "feriados", label: "Feriados" },
+  { value: "blackfriday", label: "Black Friday" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
@@ -638,6 +642,29 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
             )}
           </section>
         </>
+      );
+    }
+
+    if (tab === "blackfriday") {
+      const ativa = await blackFridayAtiva();
+      return (
+        <section className={card}>
+          <h2 className="mb-1 text-base">Consulta de descontos da Black Friday</h2>
+          <p className="mb-3 text-sm text-ink-2">
+            Campo no início do painel onde a equipe digita o código ou a descrição e vê o desconto à vista do produto. São {number(TOTAL_PRODUTOS_BF)}{" "}
+            produtos, copiados da planilha da promoção. Ao desativar, o campo some do painel na próxima vez que a tela carregar e a consulta para de
+            responder na hora, inclusive para quem já estava com a tela aberta. A lista continua guardada: dá para ativar de novo.
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="font-medium">Consulta {ativa ? "ativada" : "desativada"}</p>
+            <form action={toggleBlackFriday}>
+              <input type="hidden" name="ativa" value={ativa ? "0" : "1"} />
+              <button type="submit" className={small}>
+                {ativa ? "Desativar" : "Ativar"}
+              </button>
+            </form>
+          </div>
+        </section>
       );
     }
 

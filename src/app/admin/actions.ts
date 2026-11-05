@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { setBlackFridayAtiva } from "@/lib/black-friday";
 import { addPlace, deletePlace, saveAccessRule, setPlaceActive, updatePlace, type Janela } from "@/lib/acesso";
 import { parseCoords } from "@/lib/coords";
 import { env } from "@/lib/env";
@@ -214,6 +215,14 @@ export async function resetMasterPasswordAction(form: FormData) {
   if (!parsed.success) return;
   await resetMasterPassword(parsed.data);
   console.info(`[admin] senha do master ${parsed.data} zerada`);
+  refresh();
+}
+
+export async function toggleBlackFriday(form: FormData) {
+  await requireAdmin();
+  const ativa = form.get("ativa") === "1";
+  await setBlackFridayAtiva(ativa);
+  console.info(`[admin] consulta da Black Friday ${ativa ? "ativada" : "desativada"}`);
   refresh();
 }
 
