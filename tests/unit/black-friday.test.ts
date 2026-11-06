@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buscarProdutosBF, TOTAL_PRODUTOS_BF } from "@/lib/black-friday-produtos";
 
 describe("busca da Black Friday", () => {
-  it("tem a lista inteira da planilha", () => expect(TOTAL_PRODUTOS_BF).toBe(4456));
+  it("tem a lista inteira da planilha", () => expect(TOTAL_PRODUTOS_BF).toBe(6036));
 
   it("acha pelo código exato, com o desconto da planilha", () => {
     expect(buscarProdutosBF("436423").itens[0]).toEqual({ codigo: 436423, descricao: "TIGELA OXFORD EMPILHAVEIS 13CM 400ML BRANCO", desconto: 50 });
